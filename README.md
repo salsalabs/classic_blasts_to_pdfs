@@ -1,5 +1,5 @@
 # fix_awhp_blasts
-Go program to read blasts from AWHP and change any urls containing "org2.democracyinaction.org" to "org2.salsalabs.com".  See the README for details.
+Go program to read blasts from AWHP and change any urls containing "`org2.democracyinaction.org`" to "`org2.salsalabs.com`".
 # Background
 Salsa used to have a domain named `democracyinaction.org`.  That was turned down in favor of using the common `salsalabs.com` domain.
 
