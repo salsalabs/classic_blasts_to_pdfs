@@ -1,7 +1,12 @@
 # Login credentials
 logins
 
-# Output directories.
+# Output directories
 pdfs
 html
 
+# Built application
+fix_dia
+
+# Text files in general
+*.txt
