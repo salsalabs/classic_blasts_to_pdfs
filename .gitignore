@@ -1,3 +1,7 @@
 # Login credentials
 logins
 
+# Output directories.
+pdfs
+html
+
