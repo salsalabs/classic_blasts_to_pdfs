@@ -1,2 +1,3 @@
-# Ignore configuration options.
-config/*
+# Login credentials
+logins
+

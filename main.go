@@ -1,91 +1,164 @@
-//Multicopy is a multi-threaded URL retriever.  You provide
-//provide login credentials to an instance of Salas Classic.
-//Multicopy walks the directory tree in the images and files
-//repository and saves files to disk.  Files are stored in the
-//same structure on disk as they appear in the repository.
-//
-// Installation:
-//
-// go get github.com/salsalabs/multicopy
-//
-// go install github.com/salsalabs/multicopy
-//
-// Execution:
-//
-// multicopy --login [YAML file] --dir [DIR]
-//
-// Help:
-//
-// multicopy --help
-//
 package main
 
 import (
+	"bytes"
+	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
+	"path"
+	"strings"
 	"sync"
 
+	wkhtmltopdf "github.com/SebastiaanKlippert/go-wkhtmltopdf"
 	"github.com/salsalabs/godig"
-
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
-//Blast is the structure for an email blast.
-type Blast struct {
-	Key  string `json:"email_blast_KEY"`
-	HTML string `json:"HTML_Content"`
-	Text string `json"Text"`
+const template = "http://org2.salsalabs.com/o/6931/t/0/blastContent.jsp?email_blast_KEY=%s"
+const html = "html"
+const pdfs = "pdfs"
+
+type blast struct {
+	Key     string `json:"email_blast_KEY"`
+	Subject string
+	HTML    string `json:"HTML_Content"`
+	Text    string `json:"Text_Content"`
 }
 
-//Get returns the email blast with the provided key.
-func Get(t *godig.Table, key string) (*Blast, error) {
-	return nil, nil
+func exists(x string) bool {
+	_, err := os.Stat(x)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false
+		} else {
+			panic(err)
+		}
+	}
+	return true
 }
 
-//Put saves the provided email blast to the database.
-func Put(t *godig.Table, b *Blast) error {
+func proc(in chan blast, done chan bool) {
+	for {
+		select {
+		case b := <-in:
+			err := handle(b)
+			if err != nil {
+				log.Printf("%v: %v\n", b.Key, err)
+			}
+		case <-done:
+			return
+		}
+	}
+}
+
+func handle(b blast) error {
+	// Create new PDF generator
+	pdfg, err := wkhtmltopdf.NewPDFGenerator()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Set global options
+	pdfg.Dpi.Set(600)
+	pdfg.PageSize.Set(wkhtmltopdf.PageSizeLetter)
+	pdfg.Grayscale.Set(false)
+
+	s := strings.Replace(b.HTML, "org2.democracyinaction.org", "org2.salsalabs.com", -1)
+	s = strings.Replace(s, "salsa.democracyinaction.org", "org.salsalabs.com", -1)
+	fn := fmt.Sprintf("%v - %v.html", b.Key, b.Subject)
+	fn = path.Join(html, fn)
+	if exists(fn) {
+		fmt.Printf("%s: HTML already exists\n", b.Key)
+		return nil
+	}
+	buf := []byte(s)
+	ioutil.WriteFile(fn, buf, os.ModePerm)
+	log.Printf("%s: wrote HTML to %s\n", b.Key, fn)
+
+	fn = fmt.Sprintf("%v - %v.pdf", b.Key, b.Subject)
+	fn = path.Join(pdfs, fn)
+	if exists(fn) {
+		fmt.Printf("%s: PDF already exists\n", b.Key)
+		return nil
+	}
+
+	page := wkhtmltopdf.NewPageReader(bytes.NewReader(buf))
+	page.Zoom.Set(1.0)
+	pdfg.AddPage(page)
+	err = pdfg.Create()
+	if err != nil {
+		log.Fatalf("Create error:\n%s\n\n", err)
+	}
+
+	err = pdfg.WriteFile(fn)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Printf("%s: wrote PDf to %s\n", b.Key, fn)
 	return nil
 }
 
-//main is the application.  Gathers arguments, starts listeners, reads
-//URLs and processes them.
 func main() {
 	var (
-		app   = kingpin.New("multicopy", "A command-line app to copy images and files from a Salsa HQ to your disk.")
+		app   = kingpin.New("fix_dia", "A command-line app to read old emails and replace DIA with Salsa.")
 		login = app.Flag("login", "YAML file with login credentials").Required().String()
-		dir   = app.Flag("dir", "Store contents starting in this directory.").Default(".").String()
-		count = app.Flag("count", "Start this number of processors.").Default("20").Int()
+		all   = app.Flag("all", "save all blasts, not just the ones with DIA links").Default("false").Bool()
+		count = app.Flag("count", "Start this number of processors.").Default("5").Int()
 	)
 	app.Parse(os.Args[1:])
-
 	api, err := (godig.YAMLAuth(*login))
 	if err != nil {
 		log.Fatalf("%v\n", err)
 	}
 
-	files := make(chan string)
-	done := make(chan bool)
-	var wg sync.WaitGroup
+	if !exists(pdfs) {
+		err := os.Mkdir(pdfs, os.ModePerm)
+		if !os.IsExist(err) {
+			panic(err)
+		}
+	}
+	if !exists(pdfs) {
+		err := os.Mkdir(html, os.ModePerm)
+		if !os.IsExist(err) {
+			panic(err)
+		}
+	}
 
-	// Start the processors.
-	for i := 1; i <= *count; i++ {
-		go func(i int) {
+	var wg sync.WaitGroup
+	in := make(chan blast)
+	done := make(chan bool)
+	for i := 0; i < *count; i++ {
+		go func(in chan blast, done chan bool) {
 			wg.Add(1)
 			defer wg.Done()
-			Run(api, *dir, files, done)
-		}(i)
+			proc(in, done)
+			if err != nil {
+				log.Fatal(err)
+			}
+		}(in, done)
+		log.Printf("Started processor %v\n", i+1)
 	}
-
-	// Start processing folders at the root dir.  Load will use
-	// itself to process subdirs.
-	err = Load(api, "/", files)
-	if err != nil {
-		panic(err)
+	t := godig.Table{API: api, Name: "email_blast"}
+	offset := 0
+	c := 500
+	for c >= 500 {
+		var a []blast
+		err := t.Many(offset, c, "", &a)
+		if err != nil {
+			log.Fatal(err)
+		}
+		log.Printf("Read %v records from offset %v\n", len(a), offset)
+		offset += c
+		c = len(a)
+		for _, b := range a {
+			if !*all && strings.Index(b.HTML, "democracyinaction") == -1 {
+				log.Printf("%v: unchanged", b.Key)
+			} else {
+				in <- b
+			}
+		}
 	}
-
-	// Tell the processors that we're through.
 	close(done)
-
-	// Wait for everything to finish.
 	wg.Wait()
 }
