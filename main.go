@@ -21,16 +21,8 @@
 package main
 
 import (
-	"encoding/xml"
-	"errors"
-	"fmt"
-	"io"
-	"io/ioutil"
 	"log"
-	"net/http"
-	"net/url"
 	"os"
-	"path"
 	"sync"
 
 	"github.com/salsalabs/godig"
@@ -38,154 +30,21 @@ import (
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
-const (
-	//RepTemplate is the URL temlate for retrieving the contents of a dir.
-	//The contents of the resulting URL are returned from Salsa has an XML structure.
-	RepTemplate = `https://hq.salsalabs.com/salsa/include/fck2.5.1/editor/filemanager/browser/default/connectors/jsp/connector?Command=GetFoldersAndFiles&Type=Image&CurrentFolder=%s`
-)
-
-//Connector is the wrapper for the rest of the XML-based structure.
-type Connector struct {
-	Command      string        `xml:"command,attr"`
-	ResourceType string        `xml:"resourceType,attr"`
-	Current      CurrentFolder `xml:"CurrentFolder"`
-	Dirs         Folders       `xml:"Folders"`
-	Files        Files         `mxl:"Files"`
+//Blast is the structure for an email blast.
+type Blast struct {
+	Key  string `json:"email_blast_KEY"`
+	HTML string `json:"HTML_Content"`
+	Text string `json"Text"`
 }
 
-//CurrentFolder is the current folder being parsed.
-type CurrentFolder struct {
-	Path string `xml:"path,attr"`
-	URL  string `xml:"url,attr"`
+//Get returns the email blast with the provided key.
+func Get(t *godig.Table, key string) (*Blast, error) {
+	return nil, nil
 }
 
-//Folders represents a list of folders.  Can be empty.
-type Folders struct {
-	XMLName xml.Name `xml:"Folders"`
-	Entries []Folder `xml:"Folder"`
-}
-
-//Files represents a list of fileds. Can be empty.
-type Files struct {
-	XMLName xml.Name `xml:"Files"`
-	Entries []Folder `xml:"File"`
-}
-
-//Folder represents a folder.  No contents, just the folder.
-type Folder struct {
-	Name string `xml:"name,attr"`
-}
-
-//File represents a file in the current folder.
-type File struct {
-	Name string `xml:"name,attr"`
-	Size string `xml:"size,attr"`
-}
-
-//Load reads repository folder names from a channel.  The directory
-//name is used to create a URL used to list the directory.  Files
-//in the directory are written to the files channel.
-func Load(api *godig.API, dir string, files chan string) error {
-	var errLog = log.New(os.Stderr, "", log.LstdFlags)
-	var stdLog = log.New(os.Stdout, "", log.LstdFlags)
-	stdLog.Printf("Folder '%s'\n", dir)
-	u := fmt.Sprintf(RepTemplate, dir)
-	req, err := http.NewRequest("GET", u, nil)
-	if err != nil {
-		return err
-	}
-	// Salsa's API needs these cookies to verify authentication.
-	for _, c := range api.Cookies {
-		req.AddCookie(c)
-	}
-	resp, err := api.Client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-
-	var v Connector
-	err = xml.Unmarshal(body, &v)
-	if err != nil {
-		return err
-	}
-
-	// Queue up files for processing.
-	for _, f := range v.Files.Entries {
-		p := v.Current.URL + f.Name
-		files <- p
-	}
-
-	//Re-entrantly process folders.
-	for _, d := range v.Dirs.Entries {
-		p := v.Current.Path + d.Name + "/"
-		err = Load(api, p, files)
-		if err != nil {
-			errLog.Printf("%v on '%v'\n", err, d.Name)
-		}
-	}
+//Put saves the provided email blast to the database.
+func Put(t *godig.Table, b *Blast) error {
 	return nil
-}
-
-//Run reads names from the files channel and writes them to disk.
-//Errors are logged and are not fatal.  Processing continues
-//until the done channel has contents or is closed.
-func Run(api *godig.API, dir string, files chan string, done chan bool) {
-	var errLog = log.New(os.Stderr, "", log.LstdFlags)
-	//var stdLog = log.New(os.Stdout, "", log.LstdFlags)
-	for {
-		select {
-		case u := <-files:
-			_, err := Store(u, dir)
-			if err != nil {
-				errLog.Printf("Error: %v %s\n", err, u)
-			} else {
-				//stdLog.Printf("%s\n", u)
-			}
-		case <-done:
-			return
-		default:
-		}
-	}
-}
-
-//Store saves a URL to disk.  The contents are stored starting in
-//the provided directory keeping the URL's directory structure
-//intact.
-func Store(link string, dir string) (int64, error) {
-	r, err := http.Get(link)
-	if err != nil {
-		return 0, err
-	}
-	if r.StatusCode != 200 {
-		m := fmt.Sprintf("%v (%v)", r.StatusCode, http.StatusText(r.StatusCode))
-		return 0, errors.New(m)
-	}
-	defer r.Body.Close()
-
-	u, err := url.Parse(link)
-	if err != nil {
-		return 0, err
-	}
-	p := path.Join(dir, u.Path)
-	d := path.Dir(p)
-	err = os.MkdirAll(d, os.ModePerm)
-	f, err := os.Create(p)
-	if err != nil {
-		return 0, err
-	}
-	defer f.Close()
-
-	n, err := io.Copy(f, r.Body)
-	if err != nil {
-		return 0, err
-	}
-	f.Sync()
-	return int64(n), nil
 }
 
 //main is the application.  Gathers arguments, starts listeners, reads
