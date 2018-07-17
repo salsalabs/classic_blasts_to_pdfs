@@ -2,11 +2,11 @@
 Go program to write PDFs for email blasts.  If the blasts have URLs that contain `democracyinaction.org`, then those are changed to the correct
 hostname on `salsalabs.com` before being converted to PDFs.
 # Background
-Salsa used to have a domain named `democracyinaction.org`.  That was turned down in favor of using  `salsalabs.com`.
+Salsa used to have a domain named `democracyinaction.org`.  That domain was turned off in favor of using `salsalabs.com`.
 
 Clients that uploaded and used images and files when `democracyinaction.org` was alive still have email blasts that reference that domain.
 
-Salsa offsers a service that retrieves PDFs for completed email blasts. This service breaks down if image and file URLs are located on
+Salsa offers a service that retrieves PDFs for completed email blasts. This service breaks down if image and file URLs are located on
 `democracyinaction.org`.  This app solves that problem by fixing those URLs before the HTML is converted to a PDF.
 
 ## Login credentials
@@ -40,7 +40,7 @@ go run main.go --credentials YAML_Credentials_File [--all]] [[--count number]]
 Use
 ```go run main.go --help
 ```
-to see the help.  YOu sould see something like this:
+to see the help.  You sould see something like this:
 ```
 A command-line app to read email blasts, correct DIA URLs and write PDFs.
 
@@ -55,7 +55,7 @@ Flags:
 The application creates two directories.
 
 * `html`: the modified HTML for each of the blasts.
-* `pdfs1: the PDFs for each of the blasts.
+* `pdfs`: the PDFs for each of the blasts.
 
 #Questions?  Comments?
 Use the [Issues link](https://github.com/salsalabs/fix_dia/issues) in the repository.  Don't waste your time by contacting Salsa support.
