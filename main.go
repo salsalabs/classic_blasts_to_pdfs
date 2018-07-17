@@ -64,22 +64,23 @@ func handle(b blast) error {
 	pdfg.PageSize.Set(wkhtmltopdf.PageSizeLetter)
 	pdfg.Grayscale.Set(false)
 
+	subj := strings.Replace(b.Subject, "/", " ", -1)
 	s := strings.Replace(b.HTML, "org2.democracyinaction.org", "org2.salsalabs.com", -1)
 	s = strings.Replace(s, "salsa.democracyinaction.org", "org.salsalabs.com", -1)
-	fn := fmt.Sprintf("%v - %v.html", b.Key, b.Subject)
+	fn := fmt.Sprintf("%v - %v.html", b.Key, subj)
 	fn = path.Join(html, fn)
 	if exists(fn) {
-		fmt.Printf("%s: HTML already exists\n", b.Key)
+		log.Printf("%s: HTML already exists\n", b.Key)
 		return nil
 	}
 	buf := []byte(s)
 	ioutil.WriteFile(fn, buf, os.ModePerm)
-	log.Printf("%s: wrote HTML to %s\n", b.Key, fn)
+	//log.Printf("wrote %s\n", fn)
 
-	fn = fmt.Sprintf("%v - %v.pdf", b.Key, b.Subject)
+	fn = fmt.Sprintf("%v - %v.pdf", b.Key, subj)
 	fn = path.Join(pdfs, fn)
 	if exists(fn) {
-		fmt.Printf("%s: PDF already exists\n", b.Key)
+		log.Printf("%s already exists\n", fn)
 		return nil
 	}
 
@@ -95,16 +96,17 @@ func handle(b blast) error {
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Printf("%s: wrote PDf to %s\n", b.Key, fn)
+	log.Printf("wrote %s\n", fn)
 	return nil
 }
 
 func main() {
 	var (
-		app   = kingpin.New("fix_dia", "A command-line app to read email blasts, correct DIA URLs and write PDFs.")
-		login = app.Flag("login", "YAML file with login credentials").Required().String()
-		all   = app.Flag("all", "save all blasts, not just the ones with DIA links").Default("false").Bool()
-		count = app.Flag("count", "Start this number of processors.").Default("5").Int()
+		app     = kingpin.New("fix_dia", "A command-line app to read email blasts, correct DIA URLs and write PDFs.")
+		login   = app.Flag("login", "YAML file with login credentials").Required().String()
+		all     = app.Flag("all", "save all blasts, not just the ones with DIA links").Default("false").Bool()
+		count   = app.Flag("count", "Start this number of processors.").Default("5").Int()
+		summary = app.Flag("summary", "Show blast keys and subjects.  Do not write PDFs").Default("false").Bool()
 	)
 	app.Parse(os.Args[1:])
 	api, err := (godig.YAMLAuth(*login))
@@ -137,14 +139,14 @@ func main() {
 				log.Fatal(err)
 			}
 		}(in, done)
-		log.Printf("Started processor %v\n", i+1)
+		//log.Printf("Started processor %v\n", i+1)
 	}
 	t := godig.Table{API: api, Name: "email_blast"}
 	offset := 0
 	c := 500
 	for c >= 500 {
 		var a []blast
-		err := t.Many(offset, c, "", &a)
+		err := t.Many(offset, c, "Stage=Complete", &a)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -152,10 +154,12 @@ func main() {
 		offset += c
 		c = len(a)
 		for _, b := range a {
-			if !*all && strings.Index(b.HTML, "democracyinaction") == -1 {
-				log.Printf("%v: unchanged", b.Key)
+			if *summary {
+				log.Printf("%v: %v\n", b.Key, b.Subject)
 			} else {
-				in <- b
+				if *all || strings.Index(b.HTML, "democracyinaction") != -1 {
+					in <- b
+				}
 			}
 		}
 	}
