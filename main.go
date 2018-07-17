@@ -101,7 +101,7 @@ func handle(b blast) error {
 
 func main() {
 	var (
-		app   = kingpin.New("fix_dia", "A command-line app to read old emails and replace DIA with Salsa.")
+		app   = kingpin.New("fix_dia", "A command-line app to read email blasts, correct DIA URLs and write PDFs.")
 		login = app.Flag("login", "YAML file with login credentials").Required().String()
 		all   = app.Flag("all", "save all blasts, not just the ones with DIA links").Default("false").Bool()
 		count = app.Flag("count", "Start this number of processors.").Default("5").Int()
