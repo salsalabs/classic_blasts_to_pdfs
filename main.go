@@ -31,9 +31,8 @@ func exists(x string) bool {
 	if err != nil {
 		if os.IsNotExist(err) {
 			return false
-		} else {
-			panic(err)
 		}
+		panic(err)
 	}
 	return true
 }
