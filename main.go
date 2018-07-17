@@ -155,7 +155,7 @@ func main() {
 		c = len(a)
 		for _, b := range a {
 			if *summary {
-				log.Printf("%v: %v\n", b.Key, b.Subject)
+				fmt.Printf("%v: %v\n", b.Key, b.Subject)
 			} else {
 				if *all || strings.Index(b.HTML, "democracyinaction") != -1 {
 					in <- b
