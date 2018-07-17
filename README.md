@@ -1,6 +1,6 @@
 # fix_dia
 Go program to write PDFs for email blasts.  If the blasts have URLs that contain `democracyinaction.org`, then those are changed to the correct
-hostname on `salsalabs.com`.
+hostname on `salsalabs.com` before being converted to PDFs.
 # Background
 Salsa used to have a domain named `democracyinaction.org`.  That was turned down in favor of using  `salsalabs.com`.
 
