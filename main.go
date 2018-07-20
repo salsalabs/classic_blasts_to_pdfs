@@ -63,9 +63,12 @@ func handle(b blast) error {
 	pdfg.PageSize.Set(wkhtmltopdf.PageSizeLetter)
 	pdfg.Grayscale.Set(false)
 
+	s := scrub(b.HTML)
 	subj := strings.Replace(b.Subject, "/", " ", -1)
-	s := strings.Replace(b.HTML, "org2.democracyinaction.org", "org2.salsalabs.com", -1)
-	s = strings.Replace(s, "salsa.democracyinaction.org", "org.salsalabs.com", -1)
+	if len(subj) == 0 {
+		subj = "No Title"
+	}
+	subj = strings.TrimSpace(subj)
 	fn := fmt.Sprintf("%v - %v.html", b.Key, subj)
 	fn = path.Join(html, fn)
 	if exists(fn) {
@@ -84,11 +87,14 @@ func handle(b blast) error {
 	}
 
 	page := wkhtmltopdf.NewPageReader(bytes.NewReader(buf))
+	page.DisableSmartShrinking.Set(true)
+	page.LoadErrorHandling.Set("ignore")
+	page.LoadMediaErrorHandling.Set("ignore")
 	page.Zoom.Set(1.0)
 	pdfg.AddPage(page)
 	err = pdfg.Create()
 	if err != nil {
-		log.Fatalf("Create error:\n%s\n\n", err)
+		log.Fatalf("Create error on %v:\n%s\n\n", b.Key, err)
 	}
 
 	err = pdfg.WriteFile(fn)
@@ -97,6 +103,12 @@ func handle(b blast) error {
 	}
 	log.Printf("wrote %s\n", fn)
 	return nil
+}
+
+func scrub(x string) string {
+	s := strings.Replace(x, "org2.democracyinaction.org", "org2.salsalabs.com", -1)
+	s = strings.Replace(s, "salsa.democracyinaction.org", "org.salsalabs.com", -1)
+	return s
 }
 
 func main() {
@@ -114,14 +126,14 @@ func main() {
 
 	if !exists(pdfs) {
 		err := os.Mkdir(pdfs, os.ModePerm)
-		if !os.IsExist(err) {
-			panic(err)
+		if err != nil && !os.IsExist(err) {
+			log.Fatalf("%v, %v\n", err, pdfs)
 		}
 	}
-	if !exists(pdfs) {
+	if !exists(html) {
 		err := os.Mkdir(html, os.ModePerm)
-		if !os.IsExist(err) {
-			panic(err)
+		if err != nil && !os.IsExist(err) {
+			log.Fatalf("%v, %v\n", err, html)
 		}
 	}
 
