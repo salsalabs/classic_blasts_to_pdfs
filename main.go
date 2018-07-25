@@ -53,7 +53,7 @@ func proc(in chan blast, done chan bool) {
 	}
 }
 
-func filename(b blast) string {
+func filename(b blast, ext string) string {
 	const form = "Mon Jan 02 2006 15:04:05 GMT-0700 (MST)"
 	t, _ := time.Parse(form, b.Date)
 	d := t.Format("2006-01-02")
@@ -64,7 +64,7 @@ func filename(b blast) string {
 	}
 	s = strings.TrimSpace(s)
 
-	return fmt.Sprintf("%v - %v - %v.html", d, b.Key, s)
+	return fmt.Sprintf("%v - %v - %v.%v", d, b.Key, s, ext)
 }
 
 func handle(b blast) error {
@@ -80,7 +80,7 @@ func handle(b blast) error {
 	pdfg.Grayscale.Set(false)
 
 	s := scrub(b.HTML)
-	fn := filename(b)
+	fn := filename(b, "html")
 	fn = path.Join(html, fn)
 	if exists(fn) {
 		log.Printf("%s: HTML already exists\n", b.Key)
@@ -90,7 +90,7 @@ func handle(b blast) error {
 	ioutil.WriteFile(fn, buf, os.ModePerm)
 	//log.Printf("wrote %s\n", fn)
 
-	fn = filename(b)
+	fn = filename(b, "pdf")
 	fn = path.Join(pdfs, fn)
 	if exists(fn) {
 		log.Printf("%s already exists\n", fn)
@@ -177,7 +177,7 @@ func main() {
 		c = len(a)
 		for _, b := range a {
 			if *summary {
-				fmt.Println(filename(b))
+				fmt.Println(filename(b, "pdf"))
 			} else {
 				in <- b
 			}
