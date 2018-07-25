@@ -16,7 +16,6 @@ import (
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
-const template = "http://org2.salsalabs.com/o/6931/t/0/blastContent.jsp?email_blast_KEY=%s"
 const html = "html"
 const pdfs = "pdfs"
 
@@ -127,8 +126,8 @@ func main() {
 	var (
 		app     = kingpin.New("fix_dia", "A command-line app to read email blasts, correct DIA URLs and write PDFs.")
 		login   = app.Flag("login", "YAML file with login credentials").Required().String()
-		count   = app.Flag("count", "Start this number of processors.").Default("5").Int()
-		summary = app.Flag("summary", "Show blast keys and subjects.  Do not write PDFs").Default("false").Bool()
+		count   = app.Flag("count", "Start this number of processors.").Default("10").Int()
+		summary = app.Flag("summary", "Show blast dates, keys and subjects.  Does not write PDFs").Default("false").Bool()
 	)
 	app.Parse(os.Args[1:])
 	api, err := (godig.YAMLAuth(*login))
