@@ -34,7 +34,7 @@ func exists(x string) bool {
 		if os.IsNotExist(err) {
 			return false
 		}
-		panic(err)
+		log.Fatalf("%v %v\n", err, x)
 	}
 	return true
 }
@@ -71,7 +71,7 @@ func handle(b blast) error {
 	// Create new PDF generator
 	pdfg, err := wkhtmltopdf.NewPDFGenerator()
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	// Set global options
@@ -105,12 +105,12 @@ func handle(b blast) error {
 	pdfg.AddPage(page)
 	err = pdfg.Create()
 	if err != nil {
-		log.Fatalf("Create error on %v:\n%s\n\n", b.Key, err)
+		return fmt.Errorf("create error on %v:\n%s\n\n", b.Key, err)
 	}
 
 	err = pdfg.WriteFile(fn)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	log.Printf("wrote %s\n", fn)
 	return nil
@@ -119,6 +119,7 @@ func handle(b blast) error {
 func scrub(x string) string {
 	s := strings.Replace(x, "org2.democracyinaction.org", "org2.salsalabs.com", -1)
 	s = strings.Replace(s, "salsa.democracyinaction.org", "org.salsalabs.com", -1)
+	s = strings.Replace(s, "cid:", "https:", -1)
 	return s
 }
 
