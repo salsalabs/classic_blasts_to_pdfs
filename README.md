@@ -45,7 +45,8 @@ go install
 go run main.go --credentials YAML_Credentials_File [--all]] [[--count number]]
 ```
 Use
-```go run main.go --help
+```
+go run main.go --help
 ```
 to see the help.  You sould see something like this:
 ```
