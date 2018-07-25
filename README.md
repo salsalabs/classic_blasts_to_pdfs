@@ -39,7 +39,7 @@ go get "github.com/salsalabs/classic_blasts_to_pdfs"
 
 go install
 
-#Usage
+# Usage
 ```bash
 go run main.go --credentials YAML_Credentials_File [--all]] [[--count number]]
 ```
@@ -53,7 +53,7 @@ A command-line app to read email blasts, correct DIA URLs and write PDFs.
 Flags:
   --help         Show context-sensitive help (also try --help-long and --help-man).
   --login=LOGIN  YAML file with login credentials
-  --count=5      Start this number of processors.
+  --count=10     Start this number of processors.
 ```
 # Output.
 
