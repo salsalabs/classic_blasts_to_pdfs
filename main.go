@@ -9,6 +9,7 @@ import (
 	"path"
 	"strings"
 	"sync"
+	"time"
 
 	wkhtmltopdf "github.com/SebastiaanKlippert/go-wkhtmltopdf"
 	"github.com/salsalabs/godig"
@@ -20,6 +21,7 @@ const html = "html"
 const pdfs = "pdfs"
 
 type blast struct {
+	Date    string `json:"Date_Created"`
 	Key     string `json:"email_blast_KEY"`
 	Subject string
 	HTML    string `json:"HTML_Content"`
@@ -51,6 +53,20 @@ func proc(in chan blast, done chan bool) {
 	}
 }
 
+func filename(b blast) string {
+	const form = "Mon Jan 02 2006 15:04:05 GMT-0700 (MST)"
+	t, _ := time.Parse(form, b.Date)
+	d := t.Format("2006-01-02")
+
+	s := strings.Replace(b.Subject, "/", " ", -1)
+	if len(s) == 0 {
+		s = "No Title"
+	}
+	s = strings.TrimSpace(s)
+
+	return fmt.Sprintf("%v - %v - %v.html", d, b.Key, s)
+}
+
 func handle(b blast) error {
 	// Create new PDF generator
 	pdfg, err := wkhtmltopdf.NewPDFGenerator()
@@ -64,12 +80,7 @@ func handle(b blast) error {
 	pdfg.Grayscale.Set(false)
 
 	s := scrub(b.HTML)
-	subj := strings.Replace(b.Subject, "/", " ", -1)
-	if len(subj) == 0 {
-		subj = "No Title"
-	}
-	subj = strings.TrimSpace(subj)
-	fn := fmt.Sprintf("%v - %v.html", b.Key, subj)
+	fn := filename(b)
 	fn = path.Join(html, fn)
 	if exists(fn) {
 		log.Printf("%s: HTML already exists\n", b.Key)
@@ -79,7 +90,7 @@ func handle(b blast) error {
 	ioutil.WriteFile(fn, buf, os.ModePerm)
 	//log.Printf("wrote %s\n", fn)
 
-	fn = fmt.Sprintf("%v - %v.pdf", b.Key, subj)
+	fn = filename(b)
 	fn = path.Join(pdfs, fn)
 	if exists(fn) {
 		log.Printf("%s already exists\n", fn)
@@ -165,7 +176,7 @@ func main() {
 		c = len(a)
 		for _, b := range a {
 			if *summary {
-				fmt.Printf("%v: %v\n", b.Key, b.Subject)
+				fmt.Println(filename(b))
 			} else {
 				in <- b
 			}
