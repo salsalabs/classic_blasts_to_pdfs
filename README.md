@@ -38,6 +38,7 @@ go get "github.com/salsalabs/godig"
 go get "github.com/salsalabs/classic_blasts_to_pdfs"
 
 go install
+```
 
 # Usage
 ```bash
