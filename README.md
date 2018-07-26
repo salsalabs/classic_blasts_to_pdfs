@@ -57,7 +57,7 @@ Flags:
   --login=LOGIN  YAML file with login credentials
   --count=10     Start this number of processors.
 ```
-# Output.
+# Output
 
 The application creates two directories.
 
