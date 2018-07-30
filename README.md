@@ -42,8 +42,9 @@ go install
 
 # Usage
 ```bash
-go run main.go --credentials YAML_Credentials_File [--all]] [[--count number]]
+go run main.go --login YAML_Credentials_File
 ```
+
 Use
 ```
 go run main.go --help
