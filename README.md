@@ -23,7 +23,7 @@ The `classic_blasts_to_pdfs` application looks for your login credentials in a Y
 
   The easiest way to get started is to  copy the `sample_login.yaml` file and edit it.  Here's an example.
 ```yaml
-host: wfc2.wiredforchange.com
+host: salsa4.salalabs.com
 email: chuck@chew.cheese
 password: extra-super-secret-password!
 ```
