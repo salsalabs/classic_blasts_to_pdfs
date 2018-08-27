@@ -125,7 +125,7 @@ func scrub(x string) string {
 
 func main() {
 	var (
-		app     = kingpin.New("fix_dia", "A command-line app to read email blasts, correct DIA URLs and write PDFs.")
+		app     = kingpin.New("classic_blasts_to_pdfs", "A command-line app to read email blasts, correct DIA URLs and write PDFs.")
 		login   = app.Flag("login", "YAML file with login credentials").Required().String()
 		count   = app.Flag("count", "Start this number of processors.").Default("10").Int()
 		summary = app.Flag("summary", "Show blast dates, keys and subjects.  Does not write PDFs").Default("false").Bool()
