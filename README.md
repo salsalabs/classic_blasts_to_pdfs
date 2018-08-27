@@ -4,7 +4,7 @@ Go program to write PDFs for email blasts using `wkhtmlpdf`.
 If the blasts have URLs that contain `democracyinaction.org`, then those are changed to the correct hostname on `salsalabs.com` before being converted to PDFs.
 
 # Background
-From time-to-time, Salsa's clients want to retrieve their email blasts for reference.  Unfortunately, that's something that Salas Classic can't do.
+From time to time, Salsa's clients want to retrieve their email blasts for reference.  Unfortunately, that's something that Salas Classic can't do.
 
 But, Salsa Classic has an "email blast archive" that shows email blasts as HTML.  This program leverages that fact by retrieving the HTML, then passing it to [`wkhtmltopdf`](https://wkhtmltopdf.org/).  `Wkhtmlmpdf` converts the HTML to a PDF and stores it on disk.
 
