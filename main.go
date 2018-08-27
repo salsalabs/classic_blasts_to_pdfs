@@ -38,16 +38,17 @@ func exists(x string) bool {
 	return true
 }
 
-func proc(in chan blast, done chan bool) {
+func proc(in chan blast) {
 	for {
 		select {
-		case b := <-in:
+		case b, ok := <-in:
+			if !ok {
+				return
+			}
 			err := handle(b)
 			if err != nil {
-				log.Printf("%v: %v\n", b.Key, err)
+				log.Printf("proc: key %v, %v\n", b.Key, err)
 			}
-		case <-done:
-			return
 		}
 	}
 }
@@ -104,7 +105,7 @@ func handle(b blast) error {
 	pdfg.AddPage(page)
 	err = pdfg.Create()
 	if err != nil {
-		return fmt.Errorf("create error on %v:\n%s\n\n", b.Key, err)
+		return fmt.Errorf("create error on %v: %s", b.Key, err)
 	}
 
 	err = pdfg.WriteFile(fn)
@@ -150,20 +151,18 @@ func main() {
 
 	var wg sync.WaitGroup
 	in := make(chan blast)
-	done := make(chan bool)
 	for i := 0; i < *count; i++ {
-		go func(in chan blast, done chan bool) {
+		go func(in chan blast, wg *sync.WaitGroup) {
 			wg.Add(1)
 			defer wg.Done()
-			proc(in, done)
+			proc(in)
 			if err != nil {
 				log.Fatal(err)
 			}
-		}(in, done)
-		//log.Printf("Started processor %v\n", i+1)
+		}(in, &wg)
 	}
 	t := godig.Table{API: api, Name: "email_blast"}
-	offset := 0
+	offset := int32(0)
 	c := 500
 	for c >= 500 {
 		var a []blast
@@ -172,8 +171,8 @@ func main() {
 			log.Fatal(err)
 		}
 		log.Printf("Read %v records from offset %v\n", len(a), offset)
-		offset += c
 		c = len(a)
+		offset += int32(c)
 		for _, b := range a {
 			if *summary {
 				fmt.Println(filename(b, "pdf"))
@@ -182,6 +181,6 @@ func main() {
 			}
 		}
 	}
-	close(done)
+	close(in)
 	wg.Wait()
 }
