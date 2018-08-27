@@ -1,6 +1,10 @@
 # Login credentials
 logins
 
+# Outputs
+pdfs
+html
+
 # Mac files
 .DS_Store
 
