@@ -1,2 +1,6 @@
 # Login credentials
 logins
+
+# Mac files
+.DS_Store
+
