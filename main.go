@@ -28,17 +28,19 @@ type blast struct {
 	Text          string `json:"Text_Content"`
 }
 
-func exists(x string) bool {
-	_, err := os.Stat(x)
+//exists returns true if the specified file exists.
+func exists(f string) bool {
+	_, err := os.Stat(f)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return false
 		}
-		log.Fatalf("%v %v\n", err, x)
+		log.Fatalf("%v %v\n", err, f)
 	}
 	return true
 }
 
+//proc accepts blasts from the input queue and handles them.
 func proc(in chan blast) {
 	for {
 		select {
@@ -54,19 +56,26 @@ func proc(in chan blast) {
 	}
 }
 
+//filename parses a blast and returns a filename with the specified
+//extension.
 func filename(b blast, ext string) string {
 	const form = "Mon Jan 02 2006 15:04:05 GMT-0700 (MST)"
 	t, _ := time.Parse(form, b.Date)
 	d := t.Format("2006-01-02")
-	s := strings.Replace(b.Subject, "/", " ", -1)
+	s := strings.Replace(b.ReferenceName, "/", " ", -1)
 	if len(s) == 0 {
-		s = "No Title"
+		s = strings.Replace(b.Subject, "/", " ", -1)
+	}
+	if len(s) == 0 {
+		s = "Unknown"
 	}
 	s = strings.TrimSpace(s)
-
 	return fmt.Sprintf("%v - %v - %v.%v", d, b.Key, s, ext)
 }
 
+//handle accepts a blast and writes both HTML and PDF files.
+//Errors writing PDFs (e.g. an image was deleted long ago) are
+//noted but not fatal.
 func handle(b blast) error {
 	// Create new PDF generator
 	pdfg, err := wkhtmltopdf.NewPDFGenerator()
@@ -88,8 +97,6 @@ func handle(b blast) error {
 	}
 	buf := []byte(s)
 	ioutil.WriteFile(fn, buf, os.ModePerm)
-	//log.Printf("wrote %s\n", fn)
-
 	fn = filename(b, "pdf")
 	fn = path.Join(pdfs, fn)
 	if exists(fn) {
@@ -116,6 +123,34 @@ func handle(b blast) error {
 	return nil
 }
 
+//push reads the email_blast table and pushes email blast onto a queue.
+func push(api *godig.API, summary bool, in chan blast) error {
+	t := api.EmailBlast()
+	offset := int32(0)
+	c := 500
+	for c >= 500 {
+		var a []blast
+		err := t.Many(offset, c, "Stage=Complete", &a)
+		if err != nil {
+			return err
+		}
+		log.Printf("Read %v records from offset %v\n", len(a), offset)
+		c = len(a)
+		offset += int32(c)
+		for _, b := range a {
+			if summary {
+				fmt.Println(filename(b, "pdf"))
+			} else {
+				in <- b
+			}
+		}
+	}
+	close(in)
+	return nil
+}
+
+//scrub handles the cases where resource URLs are on domains that Salsa no
+//longer supports.
 func scrub(x string) string {
 	s := strings.Replace(x, "org2.democracyinaction.org", "org2.salsalabs.com", -1)
 	s = strings.Replace(s, "salsa.democracyinaction.org", "org.salsalabs.com", -1)
@@ -124,6 +159,8 @@ func scrub(x string) string {
 	return s
 }
 
+//main accepts inputs form the user and processes blasts into HTML and PDF
+//files.
 func main() {
 	var (
 		app     = kingpin.New("classic_blasts_to_pdfs", "A command-line app to read email blasts, correct DIA URLs and write PDFs.")
@@ -157,31 +194,11 @@ func main() {
 			wg.Add(1)
 			defer wg.Done()
 			proc(in)
-			if err != nil {
-				log.Fatal(err)
-			}
 		}(in, &wg)
 	}
-	t := godig.Table{API: api, Name: "email_blast"}
-	offset := int32(0)
-	c := 500
-	for c >= 500 {
-		var a []blast
-		err := t.Many(offset, c, "Stage=Complete", &a)
-		if err != nil {
-			log.Fatal(err)
-		}
-		log.Printf("Read %v records from offset %v\n", len(a), offset)
-		c = len(a)
-		offset += int32(c)
-		for _, b := range a {
-			if *summary {
-				fmt.Println(filename(b, "pdf"))
-			} else {
-				in <- b
-			}
-		}
+	err = push(api, *summary, in)
+	if err != nil {
+		log.Fatalf("%v\n", err)
 	}
-	close(in)
 	wg.Wait()
 }
