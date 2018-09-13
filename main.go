@@ -20,11 +20,12 @@ const html = "html"
 const pdfs = "pdfs"
 
 type blast struct {
-	Date    string `json:"Date_Created"`
-	Key     string `json:"email_blast_KEY"`
-	Subject string
-	HTML    string `json:"HTML_Content"`
-	Text    string `json:"Text_Content"`
+	Date          string `json:"Scheduled_Time"`
+	Key           string `json:"email_blast_KEY"`
+	ReferenceName string `json:"Reference_Name"`
+	Subject       string
+	HTML          string `json:"HTML_Content"`
+	Text          string `json:"Text_Content"`
 }
 
 func exists(x string) bool {
@@ -57,7 +58,6 @@ func filename(b blast, ext string) string {
 	const form = "Mon Jan 02 2006 15:04:05 GMT-0700 (MST)"
 	t, _ := time.Parse(form, b.Date)
 	d := t.Format("2006-01-02")
-
 	s := strings.Replace(b.Subject, "/", " ", -1)
 	if len(s) == 0 {
 		s = "No Title"
@@ -119,6 +119,7 @@ func handle(b blast) error {
 func scrub(x string) string {
 	s := strings.Replace(x, "org2.democracyinaction.org", "org2.salsalabs.com", -1)
 	s = strings.Replace(s, "salsa.democracyinaction.org", "org.salsalabs.com", -1)
+	s = strings.Replace(s, "hq.demaction.org", "org.salsalabs.com", -1)
 	s = strings.Replace(s, "cid:", "https:", -1)
 	return s
 }
