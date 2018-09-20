@@ -64,7 +64,7 @@ func filename(b blast, ext string) string {
 	d := t.Format("2006-01-02")
 	s := strings.Replace(b.Subject, "/", " ", -1)
 	if len(s) == 0 {
-		s = strings.Replace(b.Reference_Name, "/", " ", -1)
+		s = strings.Replace(b.ReferenceName, "/", " ", -1)
 	}
 	if len(s) == 0 {
 		s = "Unknown"
