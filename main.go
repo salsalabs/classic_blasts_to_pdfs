@@ -21,6 +21,8 @@ const pdfs = "pdfs"
 
 type blast struct {
 	Date          string `json:"Scheduled_Time"`
+	LastModified  string `json:"Last_Modified"`
+	DateRequested string `json:"Date_Requested"`
 	Key           string `json:"email_blast_KEY"`
 	ReferenceName string `json:"Reference_Name"`
 	Subject       string
@@ -60,7 +62,14 @@ func proc(in chan blast) {
 //extension.
 func filename(b blast, ext string) string {
 	const form = "Mon Jan 02 2006 15:04:05 GMT-0700 (MST)"
-	t, _ := time.Parse(form, b.Date)
+	x := b.Date
+	if len(x) == 0 {
+		x = b.LastModified
+	}
+	if len(x) == 0 {
+		x = b.DateRequested
+	}
+	t, _ := time.Parse(form, x)
 	d := t.Format("2006-01-02")
 	s := strings.Replace(b.Subject, "/", " ", -1)
 	if len(s) == 0 {
