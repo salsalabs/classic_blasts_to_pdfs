@@ -20,7 +20,8 @@ const html = "html"
 const pdfs = "pdfs"
 
 type blast struct {
-	Date          string `json:"Scheduled_Time"`
+	ScheduledTime string `json:"Scheduled_Time"`
+	DateCreated   string `json:"Date_Created"`
 	Key           string `json:"email_blast_KEY"`
 	ReferenceName string `json:"Reference_Name"`
 	Subject       string
@@ -56,12 +57,22 @@ func proc(in chan blast) {
 	}
 }
 
+//date converts Classic's ugly date to Engage format.
+func date(s string) string {
+	const form = "Mon Jan 02 2006 15:04:05 GMT-0700 (MST)"
+	t, _ := time.Parse(form, s)
+	d := t.Format("2006-01-02")
+	return d
+}
+
 //filename parses a blast and returns a filename with the specified
 //extension.
 func filename(b blast, ext string) string {
-	const form = "Mon Jan 02 2006 15:04:05 GMT-0700 (MST)"
-	t, _ := time.Parse(form, b.Date)
-	d := t.Format("2006-01-02")
+	d := date(b.ScheduledTime)
+	if d == "0001-01-01" {
+		d = date(b.DateCreated)
+	}
+
 	s := strings.Replace(b.ReferenceName, "/", " ", -1)
 	if len(s) == 0 {
 		s = strings.Replace(b.Subject, "/", " ", -1)
