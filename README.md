@@ -1,12 +1,10 @@
 # classic_blasts_to_pdfs
 Go program to write PDFs for email blasts using `wkhtmlpdf`.
 
-If the blasts have URLs that contain `democracyinaction.org`, then those are changed to the correct hostname on `salsalabs.com` before being converted to PDFs.
-
 # Background
 From time to time, Salsa's clients want to retrieve their email blasts for reference.  Unfortunately, that's something that Salas Classic can't do.
 
-But, Salsa Classic has an "email blast archive" that shows email blasts as HTML.  This program leverages that fact by retrieving the HTML, then passing it to [`wkhtmltopdf`](https://wkhtmltopdf.org/).  `Wkhtmlmpdf` converts the HTML to a PDF and stores it on disk.
+But, Salsa Classic has an "email blast archive" that shows email blasts as HTML.  This program leverages that fact by retrieving the HTML from the email blast archive, then passing it to [`wkhtmltopdf`](https://wkhtmltopdf.org/).  `Wkhtmlmpdf` converts the HTML to a PDF and stores it on disk.
 
 # Domain fixes
 Salsa used to have a domain named `democracyinaction.org`.  That domain was turned off in favor of using `salsalabs.com`.
@@ -32,11 +30,27 @@ The `email` and `password` are the ones that you normally use to log in. The `ho
 Save the new login YAML file to disk.  We'll need it when we  run the `classic_blasts_to_pdfs` app.
 
 # Installation
+## Install wkhtmltopdf
+
+[Click here](https://wkhtmltopdf.org/) to download the wkhtmltopdf application.
+
+It's a snap if you're on windows or on Linux. Installing wkhtmltopdf on OSX
+
+The tough part about all of this is installing the package in MacOSX. It's a snap to install in Windows or Linux, not so easy in OSX. You'll need to read [OSX: About Gatekeeper](https://support.apple.com/en-us/HT202491).
+
+See the section named "How to open an app from a unidentified developer and exempt it from Gatekeeper". Use the instructions on the wkhtmltopdf package file. Right click on the package file and follow the instructions.
+
+## Settings for wkhtmltopdf
+
+Putting this string in the CMD= string worked really well. The PDF images were readable and filled out the window nicely.
+
+wkhtmltopdf --zoom 3 --page-size Letter --disable-smart-shrinking
+
+The default zoom setting --zoom 1 squashed the content down and it was illegible. --zoom 3.2 was a bit to shouty IMHO. The default page size is A4 which is narrower than Letter. Using --disable-smart-shrinking seems to help. Taking it away results in squashed content. Let me know if you find something that works better.
+
+## Installing the Go application.
 ```bash
-go get "github.com/salsalabs/godig"
-
 go get "github.com/salsalabs/classic_blasts_to_pdfs"
-
 go install
 ```
 
@@ -45,7 +59,7 @@ go install
 go run main.go --login YAML_Credentials_File
 ```
 
-Use
+Use --help to get a list of options.
 ```
 go run main.go --help
 ```
