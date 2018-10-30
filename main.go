@@ -43,14 +43,14 @@ func exists(f string) bool {
 }
 
 //proc accepts blasts from the input queue and handles them.
-func proc(in chan blast) {
+func proc(in chan blast, htmlOnly bool) {
 	for {
 		select {
 		case b, ok := <-in:
 			if !ok {
 				return
 			}
-			err := handle(b)
+			err := handle(b, htmlOnly)
 			if err != nil {
 				log.Printf("proc: key %v, %v\n", b.Key, err)
 			}
@@ -85,17 +85,7 @@ func filename(b blast, ext string) string {
 //handle accepts a blast and writes both HTML and PDF files.
 //Errors writing PDFs (e.g. an image was deleted long ago) are
 //noted but not fatal.
-func handle(b blast) error {
-	// Create new PDF generator
-	pdfg, err := wkhtmltopdf.NewPDFGenerator()
-	if err != nil {
-		return err
-	}
-
-	// Set global options
-	pdfg.Dpi.Set(600)
-	pdfg.PageSize.Set(wkhtmltopdf.PageSizeLetter)
-	pdfg.Grayscale.Set(false)
+func handle(b blast, htmlOnly bool) error {
 
 	s := scrub(b.HTML)
 	fn := filename(b, "html")
@@ -106,6 +96,22 @@ func handle(b blast) error {
 	}
 	buf := []byte(s)
 	ioutil.WriteFile(fn, buf, os.ModePerm)
+
+	if htmlOnly {
+		log.Printf("wrote %s\n", fn)
+		return nil
+	}
+
+	// Create new PDF generator
+	pdfg, err := wkhtmltopdf.NewPDFGenerator()
+	if err != nil {
+		return err
+	}
+
+	// Set global options
+	pdfg.Dpi.Set(600)
+	pdfg.PageSize.Set(wkhtmltopdf.PageSizeLetter)
+	pdfg.Grayscale.Set(false)
 	fn = filename(b, "pdf")
 	fn = path.Join(pdfs, fn)
 	if exists(fn) {
@@ -172,10 +178,11 @@ func scrub(x string) string {
 //files.
 func main() {
 	var (
-		app     = kingpin.New("classic_blasts_to_pdfs", "A command-line app to read email blasts, correct DIA URLs and write PDFs.")
-		login   = app.Flag("login", "YAML file with login credentials").Required().String()
-		count   = app.Flag("count", "Start this number of processors.").Default("10").Int()
-		summary = app.Flag("summary", "Show blast dates, keys and subjects.  Does not write PDFs").Default("false").Bool()
+		app      = kingpin.New("classic_blasts_to_pdfs", "A command-line app to read email blasts, correct DIA URLs and write PDFs.")
+		login    = app.Flag("login", "YAML file with login credentials").Required().String()
+		count    = app.Flag("count", "Start this number of processors.").Default("10").Int()
+		summary  = app.Flag("summary", "Show blast dates, keys and subjects.  Does not write PDFs.").Default("false").Bool()
+		htmlOnly = app.Flag("htmlOnly", "Write HTML. Does not write PDFs.").Default("false").Bool()
 	)
 	app.Parse(os.Args[1:])
 	api, err := (godig.YAMLAuth(*login))
@@ -202,7 +209,7 @@ func main() {
 		go func(in chan blast, wg *sync.WaitGroup) {
 			wg.Add(1)
 			defer wg.Done()
-			proc(in)
+			proc(in, *htmlOnly)
 		}(in, &wg)
 	}
 	err = push(api, *summary, in)
