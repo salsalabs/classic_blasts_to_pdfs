@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -78,6 +79,8 @@ func filename(b blast, ext string) string {
 	if len(s) == 0 {
 		s = "Unknown"
 	}
+	reg, _ := regexp.Compile("[^a-zA-Z0-9 ]+")
+	s = reg.ReplaceAllString(s, "")
 	s = strings.TrimSpace(s)
 	return fmt.Sprintf("%v - %v - %v.%v", d, b.Key, s, ext)
 }
