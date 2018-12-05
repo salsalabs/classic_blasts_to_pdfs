@@ -13,7 +13,7 @@ Clients that uploaded and used images and files when `democracyinaction.org` was
 
 Attempting to retrieve images and files for the old domain doesn't work.  `Wkthmltopdf` does his best to recover.  However, the PDFs are generally blank when the use images and files from `deocracyinaction.org`.
 
-This app solves that problem by automatically modifying URls for the old domain.
+This app solves that problem by automatically modifying URLs that contain the old domain to point to `salsalabs.com`.
 
 ## Login credentials
 
@@ -34,44 +34,45 @@ Save the new login YAML file to disk.  We'll need it when we  run the `classic_b
 
 [Click here](https://wkhtmltopdf.org/) to download the wkhtmltopdf application.
 
-It's a snap if you're on windows or on Linux. Installing wkhtmltopdf on OSX
-
+It's a snap if you're on windows or on Linux. 
 The tough part about all of this is installing the package in MacOSX. It's a snap to install in Windows or Linux, not so easy in OSX. You'll need to read [OSX: About Gatekeeper](https://support.apple.com/en-us/HT202491).
 
 See the section named "How to open an app from a unidentified developer and exempt it from Gatekeeper". Use the instructions on the wkhtmltopdf package file. Right click on the package file and follow the instructions.
 
 ## Settings for wkhtmltopdf
 
-Putting this string in the CMD= string worked really well. The PDF images were readable and filled out the window nicely.
+The `classic_blasts_to_pdf` app invokes `wkhtmltopdf` using a command like this:
 
+```
 wkhtmltopdf --zoom 3 --page-size Letter --disable-smart-shrinking
+```
 
-The default zoom setting --zoom 1 squashed the content down and it was illegible. --zoom 3.2 was a bit to shouty IMHO. The default page size is A4 which is narrower than Letter. Using --disable-smart-shrinking seems to help. Taking it away results in squashed content. Let me know if you find something that works better.
+* `--zoom 3` shows of email blasts nicely
+* `--page-size letter` sets the page size to U.S. Letter format.  The default is A4.
+* `--disable-smart-shrinking` seems to help. Taking it away results in squashed content. Let me know if you find something that works better.
 
-## Installing the Go application.
+## Installing `classic_blasts_to_pdfs`.
 ```bash
 go get "github.com/salsalabs/classic_blasts_to_pdfs"
 go install
 ```
 
 # Usage
-```bash
-go run main.go --login YAML_Credentials_File
 ```
+usage: classic_blasts_to_pdfs --login=LOGIN [<flags>]
 
-Use --help to get a list of options.
-```
-go run main.go --help
-```
-to see the help.  You sould see something like this:
-```
 A command-line app to read email blasts, correct DIA URLs and write PDFs.
 
 Flags:
   --help         Show context-sensitive help (also try --help-long and --help-man).
   --login=LOGIN  YAML file with login credentials
   --count=10     Start this number of processors.
+  --summary      Show blast dates, keys and subjects. Does not write PDFs.
+  --htmlOnly     Write HTML. Does not write PDFs.```
+
+Use --help to get a list of options.
 ```
+
 # Output
 
 The application creates two directories.
@@ -80,4 +81,4 @@ The application creates two directories.
 * `pdfs`: the PDFs for each of the blasts.
 
 # Questions?  Comments?
-Use the [Issues link](https://github.com/salsalabs/classic_blasts_to_pdfs/issues) in the repository.  Don't waste your time by contacting Salsa support.
+Use the [Issues link](https://github.com/salsalabs/classic_blasts_to_pdfs/issues) in the repository.  Don't waste your time contacting Salsa support.
