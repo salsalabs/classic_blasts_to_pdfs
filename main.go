@@ -148,6 +148,8 @@ func push(api *godig.API, summary bool, in chan blast) error {
 	c := 500
 	for c >= 500 {
 		var a []blast
+		//Add this for email blasts in 2018
+		//&condition=Scheduled_Time LIKE 2018%git st
 		err := t.Many(offset, c, "Stage=Complete", &a)
 		if err != nil {
 			return err
@@ -174,6 +176,7 @@ func scrub(x string) string {
 	s = strings.Replace(s, "salsa.democracyinaction.org", "org.salsalabs.com", -1)
 	s = strings.Replace(s, "hq.demaction.org", "org.salsalabs.com", -1)
 	s = strings.Replace(s, "cid:", "https:", -1)
+	s = strings.Replace(s, "/salsa/include", "https://salsalabs.com/salsa/include", -1)
 	return s
 }
 
