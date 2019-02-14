@@ -170,13 +170,14 @@ func push(api *godig.API, summary bool, in chan blast) error {
 }
 
 //scrub handles the cases where resource URLs are on domains that Salsa no
-//longer supports.
+//longer supports.  Also handles the danged hash marks.
 func scrub(x string) string {
 	s := strings.Replace(x, "org2.democracyinaction.org", "org2.salsalabs.com", -1)
 	s = strings.Replace(s, "salsa.democracyinaction.org", "org.salsalabs.com", -1)
 	s = strings.Replace(s, "hq.demaction.org", "org.salsalabs.com", -1)
 	s = strings.Replace(s, "cid:", "https:", -1)
 	s = strings.Replace(s, "/salsa/include", "https://salsalabs.com/salsa/include", -1)
+	s = strings.Replace(s, "#", "%23", -1)
 	return s
 }
 
