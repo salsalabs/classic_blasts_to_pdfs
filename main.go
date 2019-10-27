@@ -1,7 +1,9 @@
 package main
 
 import (
+	"archive/zip"
 	"bytes"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -31,6 +33,24 @@ type blast struct {
 	Text          string `json:"Text_Content"`
 }
 
+type env struct {
+	API      *godig.API
+	Zips     map[string]*zip.Writer
+	Summary  bool
+	HTMLOnly bool
+}
+
+//newEnv builds a new enviornment using the options from the command line.
+func newEnv(api *godig.API, summary bool, htmlOnly bool) *env {
+	e := env{
+		API:      api,
+		Zips:     make(map[string]*zip.Writer),
+		Summary:  summary,
+		HTMLOnly: htmlOnly,
+	}
+	return &e
+}
+
 //exists returns true if the specified file exists.
 func exists(f string) bool {
 	_, err := os.Stat(f)
@@ -44,14 +64,14 @@ func exists(f string) bool {
 }
 
 //proc accepts blasts from the input queue and handles them.
-func proc(in chan blast, htmlOnly bool) {
+func (e *env) proc(in chan blast) {
 	for {
 		select {
 		case b, ok := <-in:
 			if !ok {
 				return
 			}
-			err := handle(b, htmlOnly)
+			err := e.handle(b)
 			if err != nil {
 				log.Printf("proc: key %v, %v\n", b.Key, err)
 			}
@@ -61,7 +81,7 @@ func proc(in chan blast, htmlOnly bool) {
 
 //filename parses a blast and creates a filename with the specified
 //extension.
-func filename(b blast, ext string) string {
+func (e *env) filename(b blast, ext string) string {
 	const form = "Mon Jan 02 2006 15:04:05 GMT-0700 (MST)"
 	x := b.Date
 	if len(x) == 0 {
@@ -96,17 +116,17 @@ func filename(b blast, ext string) string {
 //handle accepts a blast and writes both HTML and PDF files.
 //Errors writing PDFs (e.g. an image was deleted long ago) are
 //noted but not fatal.
-func handle(b blast, htmlOnly bool) error {
-	s := scrub(b.HTML)
-	fn := filename(b, "html")
+func (e *env) handle(b blast) error {
+	fn := e.filename(b, "html")
 	if exists(fn) {
 		log.Printf("HTML already exists, %s\n", fn)
 		return nil
 	}
+	s := scrub(b.HTML)
 	buf := []byte(s)
 	ioutil.WriteFile(fn, buf, os.ModePerm)
 
-	if htmlOnly {
+	if e.HTMLOnly {
 		bn := path.Base(fn)
 		log.Printf("wrote %s\n", bn)
 		return nil
@@ -123,7 +143,7 @@ func handle(b blast, htmlOnly bool) error {
 	pdfg.PageSize.Set(wkhtmltopdf.PageSizeLegal)
 	pdfg.Orientation.Set(wkhtmltopdf.OrientationPortrait)
 	pdfg.Grayscale.Set(false)
-	fn = filename(b, "pdf")
+	fn = e.filename(b, "pdf")
 	if exists(fn) {
 		log.Printf("File already exists, %s\n", fn)
 		return nil
@@ -150,8 +170,8 @@ func handle(b blast, htmlOnly bool) error {
 }
 
 //push reads the email_blast table and pushes email blast onto a queue.
-func push(api *godig.API, summary bool, in chan blast) error {
-	t := api.EmailBlast()
+func (e *env) push(in chan blast) error {
+	t := e.API.EmailBlast()
 	offset := int32(0)
 	c := 500
 	for c >= 500 {
@@ -166,8 +186,8 @@ func push(api *godig.API, summary bool, in chan blast) error {
 		c = len(a)
 		offset += int32(c)
 		for _, b := range a {
-			if summary {
-				fmt.Println(filename(b, "pdf"))
+			if e.Summary {
+				fmt.Println(e.filename(b, "pdf"))
 			} else {
 				in <- b
 			}
@@ -196,7 +216,7 @@ func main() {
 		app      = kingpin.New("classic_blasts_to_pdfs", "A command-line app to read email blasts, correct DIA URLs and write PDFs.")
 		login    = app.Flag("login", "YAML file with login credentials").Required().String()
 		count    = app.Flag("count", "Start this number of processors.").Default("10").Int()
-		summary  = app.Flag("summary", "Show blast dates, keys and subjects.  Does not write PDFs.").Default("false").Bool()
+		summary  = app.Flag("summary", "Show blast dates, keys and subjects. Does not write PDFs.").Default("false").Bool()
 		htmlOnly = app.Flag("htmlOnly", "Write HTML. Does not write PDFs.").Default("false").Bool()
 	)
 	app.Parse(os.Args[1:])
@@ -205,18 +225,28 @@ func main() {
 		log.Fatalf("%v\n", err)
 	}
 
+	e := newEnv(api, *summary, *htmlOnly)
 	var wg sync.WaitGroup
 	in := make(chan blast)
 	for i := 0; i < *count; i++ {
 		go func(in chan blast, wg *sync.WaitGroup) {
 			wg.Add(1)
 			defer wg.Done()
-			proc(in, *htmlOnly)
+			e.proc(in)
 		}(in, &wg)
 	}
-	err = push(api, *summary, in)
+	err = e.push(in)
 	if err != nil {
 		log.Fatalf("%v\n", err)
 	}
 	wg.Wait()
+	// close all of the ZIP streams.  Any failure is fatal.
+	for k, v := range e.Zips {
+		err = v.Close()
+		if err != nil {
+			m := fmt.Sprintf("Error %v closing ZIP archive for %v\n", e, k)
+			err := errors.New(m)
+			panic(err)
+		}
+	}
 }
