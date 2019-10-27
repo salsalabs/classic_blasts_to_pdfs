@@ -2,9 +2,8 @@
 logins
 
 # Outputs
-pdfs
+pdf
 html
 
 # Mac files
 .DS_Store
-
