@@ -81,7 +81,7 @@ func (e *env) proc(in chan blast) {
 
 //filename parses a blast and creates a filename with the specified
 //extension.
-func (e *env) filename(b blast, ext string) string {
+func (e *env) filename(b blast, ext string) (fn string, year string) {
 	const form = "Mon Jan 02 2006 15:04:05 GMT-0700 (MST)"
 	x := b.Date
 	if len(x) == 0 {
@@ -92,7 +92,7 @@ func (e *env) filename(b blast, ext string) string {
 	}
 	t, _ := time.Parse(form, x)
 	d := t.Format("2006-01-02")
-	year := t.Format("2006")
+	year = t.Format("2006")
 	s := strings.Replace(b.Subject, "/", " ", -1)
 	if len(s) == 0 {
 		s = strings.Replace(b.ReferenceName, "/", " ", -1)
@@ -104,31 +104,31 @@ func (e *env) filename(b blast, ext string) string {
 	reg, _ := regexp.Compile("[^a-zA-Z0-9 ]+")
 	s = reg.ReplaceAllString(s, "")
 	s = strings.TrimSpace(s)
-	f := fmt.Sprintf("%v - %v - %v.%v", d, b.Key, s, ext)
+	fn = fmt.Sprintf("%v - %v - %v.%v", d, b.Key, s, ext)
 
-	dir := path.Join(ext, year)
-	_ = os.MkdirAll(dir, os.ModePerm)
-
-	f = path.Join(dir, f)
-	return f
+	fn = path.Join(ext, year, fn)
+	return fn, year
 }
 
 //handle accepts a blast and writes both HTML and PDF files.
 //Errors writing PDFs (e.g. an image was deleted long ago) are
 //noted but not fatal.
 func (e *env) handle(b blast) error {
-	fn := e.filename(b, "html")
+	fn, _ := e.filename(b, "html")
 	if exists(fn) {
 		log.Printf("HTML already exists, %s\n", fn)
 		return nil
 	}
+
 	s := scrub(b.HTML)
 	buf := []byte(s)
+	dir := path.Dir(fn)
+	_ = os.MkdirAll(dir, os.ModePerm)
 	ioutil.WriteFile(fn, buf, os.ModePerm)
+	bn := path.Base(fn)
+	log.Printf("wrote %s\n", bn)
 
 	if e.HTMLOnly {
-		bn := path.Base(fn)
-		log.Printf("wrote %s\n", bn)
 		return nil
 	}
 
@@ -143,29 +143,63 @@ func (e *env) handle(b blast) error {
 	pdfg.PageSize.Set(wkhtmltopdf.PageSizeLegal)
 	pdfg.Orientation.Set(wkhtmltopdf.OrientationPortrait)
 	pdfg.Grayscale.Set(false)
-	fn = e.filename(b, "pdf")
-	if exists(fn) {
-		log.Printf("File already exists, %s\n", fn)
-		return nil
-	}
+	fn, year := e.filename(b, "pdf")
 
+	// Add a single page for the blast contents in HTML.
 	page := wkhtmltopdf.NewPageReader(bytes.NewReader(buf))
 	page.DisableSmartShrinking.Set(true)
 	page.LoadErrorHandling.Set("ignore")
 	page.LoadMediaErrorHandling.Set("ignore")
 	page.Zoom.Set(0.9)
 	pdfg.AddPage(page)
+
 	err = pdfg.Create()
 	if err != nil {
 		return fmt.Errorf("create error on %v: %s", b.Key, err)
 	}
 
-	err = pdfg.WriteFile(fn)
+	//Write to the current year's ZIP writer
+	zipWriter, ok := e.Zips[year]
+	if !ok {
+		//Create a new zip writer
+		zipPath := path.Join(pdfs, year)
+		zipPath = fmt.Sprintf("%s.zip", zipPath)
+		w, err := os.Create(zipPath)
+		if err != nil {
+			m := fmt.Sprintf("Error: %v created zip archive for %v\n", err, year)
+			err = errors.New(m)
+			return err
+		}
+		zipWriter = zip.NewWriter(w)
+		e.Zips[year] = zipWriter
+		log.Printf("Created zip archive for %v in %v\n", year, zipPath)
+	}
+	//Add a PDF file to the ZIP.
+	w, err := zipWriter.Create(fn)
 	if err != nil {
+		m := fmt.Sprintf("Error: %v creating file %v in archive for %v\n", err, fn, year)
+		err = errors.New(m)
+		return err
+
+	}
+	log.Printf("Created file %v in archive for %v\n", fn, year)
+
+	n, err := w.Write(pdfg.Bytes())
+	if err != nil {
+		m := fmt.Sprintf("Error: %v writing file %v in archive for %v\n", err, fn, year)
+		err = errors.New(m)
 		return err
 	}
-	bn := path.Base(fn)
-	log.Printf("wrote %s\n", bn)
+	log.Printf("Wrote %d bytes to file %v in archive for %v\n", n, fn, year)
+
+	err = zipWriter.Flush()
+	if err != nil {
+		m := fmt.Sprintf("Error: %v flushing file %v in archive for %v\n", err, fn, year)
+		err = errors.New(m)
+		panic(err)
+
+	}
+	log.Printf("Flushed file %v in archive for %v\n", fn, year)
 	return nil
 }
 
@@ -187,7 +221,8 @@ func (e *env) push(in chan blast) error {
 		offset += int32(c)
 		for _, b := range a {
 			if e.Summary {
-				fmt.Println(e.filename(b, "pdf"))
+				fn, _ := e.filename(b, "pdf")
+				fmt.Println(fn)
 			} else {
 				in <- b
 			}
