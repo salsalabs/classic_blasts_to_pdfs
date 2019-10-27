@@ -34,7 +34,7 @@ Save the new login YAML file to disk.  We'll need it when we  run the `classic_b
 
 [Click here](https://wkhtmltopdf.org/) to download the wkhtmltopdf application.
 
-It's a snap if you're on windows or on Linux. 
+It's a snap if you're on windows or on Linux.
 The tough part about all of this is installing the package in MacOSX. It's a snap to install in Windows or Linux, not so easy in OSX. You'll need to read [OSX: About Gatekeeper](https://support.apple.com/en-us/HT202491).
 
 See the section named "How to open an app from a unidentified developer and exempt it from Gatekeeper". Use the instructions on the wkhtmltopdf package file. Right click on the package file and follow the instructions.
@@ -79,6 +79,7 @@ The application creates two directories.
 
 * `html`: the modified HTML for each of the blasts.
 * `pdfs`: the PDFs for each of the blasts.
+* `pdfs/[[year]]` PDFs for a particular year
 
 # Questions?  Comments?
 Use the [Issues link](https://github.com/salsalabs/classic_blasts_to_pdfs/issues) in the repository.  Don't waste your time contacting Salsa support.

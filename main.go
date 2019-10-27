@@ -59,7 +59,7 @@ func proc(in chan blast, htmlOnly bool) {
 	}
 }
 
-//filename parses a blast and returns a filename with the specified
+//filename parses a blast and creates a filename with the specified
 //extension.
 func filename(b blast, ext string) string {
 	const form = "Mon Jan 02 2006 15:04:05 GMT-0700 (MST)"
@@ -72,6 +72,7 @@ func filename(b blast, ext string) string {
 	}
 	t, _ := time.Parse(form, x)
 	d := t.Format("2006-01-02")
+	year := t.Format("2006")
 	s := strings.Replace(b.Subject, "/", " ", -1)
 	if len(s) == 0 {
 		s = strings.Replace(b.ReferenceName, "/", " ", -1)
@@ -79,29 +80,35 @@ func filename(b blast, ext string) string {
 	if len(s) == 0 {
 		s = "Unknown"
 	}
+
 	reg, _ := regexp.Compile("[^a-zA-Z0-9 ]+")
 	s = reg.ReplaceAllString(s, "")
 	s = strings.TrimSpace(s)
-	return fmt.Sprintf("%v - %v - %v.%v", d, b.Key, s, ext)
+	f := fmt.Sprintf("%v - %v - %v.%v", d, b.Key, s, ext)
+
+	dir := path.Join(ext, year)
+	_ = os.MkdirAll(dir, os.ModePerm)
+
+	f = path.Join(dir, f)
+	return f
 }
 
 //handle accepts a blast and writes both HTML and PDF files.
 //Errors writing PDFs (e.g. an image was deleted long ago) are
 //noted but not fatal.
 func handle(b blast, htmlOnly bool) error {
-
 	s := scrub(b.HTML)
 	fn := filename(b, "html")
-	fn = path.Join(html, fn)
 	if exists(fn) {
-		log.Printf("%s: HTML already exists\n", b.Key)
+		log.Printf("HTML already exists, %s\n", fn)
 		return nil
 	}
 	buf := []byte(s)
 	ioutil.WriteFile(fn, buf, os.ModePerm)
 
 	if htmlOnly {
-		log.Printf("wrote %s\n", fn)
+		bn := path.Base(fn)
+		log.Printf("wrote %s\n", bn)
 		return nil
 	}
 
@@ -113,12 +120,12 @@ func handle(b blast, htmlOnly bool) error {
 
 	// Set global options
 	pdfg.Dpi.Set(600)
-	pdfg.PageSize.Set(wkhtmltopdf.PageSizeLetter)
+	pdfg.PageSize.Set(wkhtmltopdf.PageSizeLegal)
+	pdfg.Orientation.Set(wkhtmltopdf.OrientationPortrait)
 	pdfg.Grayscale.Set(false)
 	fn = filename(b, "pdf")
-	fn = path.Join(pdfs, fn)
 	if exists(fn) {
-		log.Printf("%s already exists\n", fn)
+		log.Printf("File already exists, %s\n", fn)
 		return nil
 	}
 
@@ -126,7 +133,7 @@ func handle(b blast, htmlOnly bool) error {
 	page.DisableSmartShrinking.Set(true)
 	page.LoadErrorHandling.Set("ignore")
 	page.LoadMediaErrorHandling.Set("ignore")
-	page.Zoom.Set(1.0)
+	page.Zoom.Set(0.9)
 	pdfg.AddPage(page)
 	err = pdfg.Create()
 	if err != nil {
@@ -137,7 +144,8 @@ func handle(b blast, htmlOnly bool) error {
 	if err != nil {
 		return err
 	}
-	log.Printf("wrote %s\n", fn)
+	bn := path.Base(fn)
+	log.Printf("wrote %s\n", bn)
 	return nil
 }
 
@@ -195,19 +203,6 @@ func main() {
 	api, err := (godig.YAMLAuth(*login))
 	if err != nil {
 		log.Fatalf("%v\n", err)
-	}
-
-	if !exists(pdfs) {
-		err := os.Mkdir(pdfs, os.ModePerm)
-		if err != nil && !os.IsExist(err) {
-			log.Fatalf("%v, %v\n", err, pdfs)
-		}
-	}
-	if !exists(html) {
-		err := os.Mkdir(html, os.ModePerm)
-		if err != nil && !os.IsExist(err) {
-			log.Fatalf("%v, %v\n", err, html)
-		}
 	}
 
 	var wg sync.WaitGroup
