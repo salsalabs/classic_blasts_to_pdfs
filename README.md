@@ -78,8 +78,8 @@ Use --help to get a list of options.
 The application creates two directories.
 
 * `html`: the modified HTML for each of the blasts.
-* `pdfs`: the PDFs for each of the blasts.
-* `pdfs/[[year]]` PDFs for a particular year
+* `blast_pdfs`: the PDFs for each of the blasts.
+* `blast_pdfs/[[year]].zip` PDFs for a particular year.  We generally export these
 
 # Questions?  Comments?
 Use the [Issues link](https://github.com/salsalabs/classic_blasts_to_pdfs/issues) in the repository.  Don't waste your time contacting Salsa support.
