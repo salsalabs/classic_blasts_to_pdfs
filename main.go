@@ -121,23 +121,23 @@ func parentDir(fn string) error {
 //Errors writing PDFs (e.g. an image was deleted long ago) are
 //noted but not fatal.
 func (e *env) handle(b blast) error {
-	fn, _ := e.filename(b, "html")
-	if exists(fn) {
-		log.Printf("HTML already exists, %s\n", fn)
-		return nil
-	}
 
 	s := scrub(b.HTML)
 	buf := []byte(s)
-	err := parentDir(fn)
-	if err != nil {
-		return err
-	}
-	ioutil.WriteFile(fn, buf, os.ModePerm)
-	bn := path.Base(fn)
-	log.Printf("wrote %s\n", bn)
 
 	if e.HTMLOnly {
+		fn, _ := e.filename(b, "html")
+		if exists(fn) {
+			log.Printf("HTML already exists, %s\n", fn)
+			return nil
+		}
+		err := parentDir(fn)
+		if err != nil {
+			return err
+		}
+		ioutil.WriteFile(fn, buf, os.ModePerm)
+		bn := path.Base(fn)
+		log.Printf("wrote %s\n", bn)
 		return nil
 	}
 
@@ -152,7 +152,6 @@ func (e *env) handle(b blast) error {
 	pdfg.PageSize.Set(wkhtmltopdf.PageSizeLegal)
 	pdfg.Orientation.Set(wkhtmltopdf.OrientationPortrait)
 	pdfg.Grayscale.Set(false)
-	fn, year := e.filename(b, "pdf")
 
 	// Add a single page for the blast contents in HTML.
 	page := wkhtmltopdf.NewPageReader(bytes.NewReader(buf))
@@ -168,6 +167,7 @@ func (e *env) handle(b blast) error {
 	}
 
 	//Write to the current year's ZIP writer
+	fn, year := e.filename(b, "pdf")
 	zipWriter, ok := e.Zips[year]
 	if !ok {
 		//Create a new zip writer
@@ -200,6 +200,8 @@ func (e *env) handle(b blast) error {
 	if err != nil {
 		return err
 	}
+	bn := path.Base(fn)
+	log.Printf("wrote %s\n", bn)
 	return nil
 }
 
@@ -262,7 +264,7 @@ func main() {
 
 	e := newEnv(api, *summary, *htmlOnly)
 	var wg sync.WaitGroup
-	in := make(chan blast)
+	in := make(chan blast, 50)
 	for i := 0; i < *count; i++ {
 		go func(in chan blast, wg *sync.WaitGroup) {
 			wg.Add(1)
