@@ -179,10 +179,11 @@ func (e *env) handle(b blast) error {
 		}
 		w, err := os.Create(zipPath)
 		if err != nil {
-			m := fmt.Sprintf("Error: %v created zip archive for %v\n", err, year)
+			m := fmt.Sprintf("%v creating %v archive\n", err, year)
 			err = errors.New(m)
 			return err
 		}
+		log.Printf("created %v.zip\n", year)
 		zipWriter = zip.NewWriter(w)
 		e.Zips[year] = zipWriter
 	}
@@ -281,15 +282,11 @@ func main() {
 	for y, w := range e.Zips {
 		err = w.Flush()
 		if err != nil {
-			m := fmt.Sprintf("Error %v flushing ZIP archive for %v\n", e, y)
-			err := errors.New(m)
-			panic(err)
+			log.Printf("%v flushing %v archive\n", e, y)
 		}
 		err = w.Close()
 		if err != nil {
-			m := fmt.Sprintf("Error %v closing ZIP archive for %v\n", e, y)
-			err := errors.New(m)
-			panic(err)
+			log.Printf("%v closing %v archive\n", e, y)
 		}
 	}
 }
