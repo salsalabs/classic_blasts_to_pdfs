@@ -278,10 +278,16 @@ func main() {
 	}
 	wg.Wait()
 	// close all of the ZIP streams.  Any failure is fatal.
-	for k, v := range e.Zips {
-		err = v.Close()
+	for y, w := range e.Zips {
+		err = w.Flush()
 		if err != nil {
-			m := fmt.Sprintf("Error %v closing ZIP archive for %v\n", e, k)
+			m := fmt.Sprintf("Error %v flushing ZIP archive for %v\n", e, y)
+			err := errors.New(m)
+			panic(err)
+		}
+		err = w.Close()
+		if err != nil {
+			m := fmt.Sprintf("Error %v closing ZIP archive for %v\n", e, y)
 			err := errors.New(m)
 			panic(err)
 		}
