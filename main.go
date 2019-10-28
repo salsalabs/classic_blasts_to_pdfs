@@ -265,7 +265,7 @@ func main() {
 
 	e := newEnv(api, *summary, *htmlOnly)
 	var wg sync.WaitGroup
-	in := make(chan blast, 50)
+	in := make(chan blast)
 	for i := 0; i < *count; i++ {
 		go func(in chan blast, wg *sync.WaitGroup) {
 			wg.Add(1)
