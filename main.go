@@ -20,7 +20,7 @@ import (
 )
 
 const html = "html"
-const pdfs = "pdfs"
+const pdfs = "blast_pdfs"
 
 type blast struct {
 	Date          string `json:"Scheduled_Time"`
@@ -110,6 +110,13 @@ func (e *env) filename(b blast, ext string) (fn string, year string) {
 	return fn, year
 }
 
+//parentDir creates a the enclosing directory for a filename.
+func parentDir(fn string) error {
+	dir := path.Dir(fn)
+	err := os.MkdirAll(dir, os.ModePerm)
+	return err
+}
+
 //handle accepts a blast and writes both HTML and PDF files.
 //Errors writing PDFs (e.g. an image was deleted long ago) are
 //noted but not fatal.
@@ -122,8 +129,10 @@ func (e *env) handle(b blast) error {
 
 	s := scrub(b.HTML)
 	buf := []byte(s)
-	dir := path.Dir(fn)
-	_ = os.MkdirAll(dir, os.ModePerm)
+	err := parentDir(fn)
+	if err != nil {
+		return err
+	}
 	ioutil.WriteFile(fn, buf, os.ModePerm)
 	bn := path.Base(fn)
 	log.Printf("wrote %s\n", bn)
@@ -164,6 +173,10 @@ func (e *env) handle(b blast) error {
 		//Create a new zip writer
 		zipPath := path.Join(pdfs, year)
 		zipPath = fmt.Sprintf("%s.zip", zipPath)
+		err = parentDir(zipPath)
+		if err != nil {
+			return err
+		}
 		w, err := os.Create(zipPath)
 		if err != nil {
 			m := fmt.Sprintf("Error: %v created zip archive for %v\n", err, year)
@@ -177,29 +190,17 @@ func (e *env) handle(b blast) error {
 	//Add a PDF file to the ZIP.
 	w, err := zipWriter.Create(fn)
 	if err != nil {
-		m := fmt.Sprintf("Error: %v creating file %v in archive for %v\n", err, fn, year)
-		err = errors.New(m)
 		return err
 
 	}
-	log.Printf("Created file %v in archive for %v\n", fn, year)
-
-	n, err := w.Write(pdfg.Bytes())
+	_, err = w.Write(pdfg.Bytes())
 	if err != nil {
-		m := fmt.Sprintf("Error: %v writing file %v in archive for %v\n", err, fn, year)
-		err = errors.New(m)
 		return err
 	}
-	log.Printf("Wrote %d bytes to file %v in archive for %v\n", n, fn, year)
-
 	err = zipWriter.Flush()
 	if err != nil {
-		m := fmt.Sprintf("Error: %v flushing file %v in archive for %v\n", err, fn, year)
-		err = errors.New(m)
-		panic(err)
-
+		return err
 	}
-	log.Printf("Flushed file %v in archive for %v\n", fn, year)
 	return nil
 }
 
@@ -240,7 +241,7 @@ func scrub(x string) string {
 	s = strings.Replace(s, "hq.demaction.org", "org.salsalabs.com", -1)
 	s = strings.Replace(s, "cid:", "https:", -1)
 	s = strings.Replace(s, "/salsa/include", "https://salsalabs.com/salsa/include", -1)
-	s = strings.Replace(s, "#", "%23", -1)
+	//s = strings.Replace(s, "#", "%23", -1)
 	return s
 }
 
