@@ -1,5 +1,6 @@
 # Login credentials
 logins
+*.yaml
 
 # Outputs
 pdf
