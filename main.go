@@ -185,7 +185,6 @@ func (e *env) handle(b blast) error {
 		}
 		zipWriter = zip.NewWriter(w)
 		e.Zips[year] = zipWriter
-		log.Printf("Created zip archive for %v in %v\n", year, zipPath)
 	}
 	//Add a PDF file to the ZIP.
 	w, err := zipWriter.Create(fn)
