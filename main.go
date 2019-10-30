@@ -121,23 +121,23 @@ func parentDir(fn string) error {
 //Errors writing PDFs (e.g. an image was deleted long ago) are
 //noted but not fatal.
 func (e *env) handle(b blast) error {
+	fn, _ := e.filename(b, "html")
+	if exists(fn) {
+		log.Printf("HTML already exists, %s\n", fn)
+		return nil
+	}
 
 	s := scrub(b.HTML)
 	buf := []byte(s)
+	err := parentDir(fn)
+	if err != nil {
+		return err
+	}
+	ioutil.WriteFile(fn, buf, os.ModePerm)
+	bn := path.Base(fn)
+	log.Printf("wrote %s\n", bn)
 
 	if e.HTMLOnly {
-		fn, _ := e.filename(b, "html")
-		if exists(fn) {
-			log.Printf("HTML already exists, %s\n", fn)
-			return nil
-		}
-		err := parentDir(fn)
-		if err != nil {
-			return err
-		}
-		ioutil.WriteFile(fn, buf, os.ModePerm)
-		bn := path.Base(fn)
-		log.Printf("wrote %s\n", bn)
 		return nil
 	}
 
@@ -152,6 +152,7 @@ func (e *env) handle(b blast) error {
 	pdfg.PageSize.Set(wkhtmltopdf.PageSizeLegal)
 	pdfg.Orientation.Set(wkhtmltopdf.OrientationPortrait)
 	pdfg.Grayscale.Set(false)
+	fn, year := e.filename(b, "pdf")
 
 	// Add a single page for the blast contents in HTML.
 	page := wkhtmltopdf.NewPageReader(bytes.NewReader(buf))
@@ -167,7 +168,6 @@ func (e *env) handle(b blast) error {
 	}
 
 	//Write to the current year's ZIP writer
-	fn, year := e.filename(b, "pdf")
 	zipWriter, ok := e.Zips[year]
 	if !ok {
 		//Create a new zip writer
@@ -179,11 +179,10 @@ func (e *env) handle(b blast) error {
 		}
 		w, err := os.Create(zipPath)
 		if err != nil {
-			m := fmt.Sprintf("%v creating %v archive\n", err, year)
+			m := fmt.Sprintf("Error: %v created zip archive for %v\n", err, year)
 			err = errors.New(m)
 			return err
 		}
-		log.Printf("created %v.zip\n", year)
 		zipWriter = zip.NewWriter(w)
 		e.Zips[year] = zipWriter
 	}
@@ -201,8 +200,6 @@ func (e *env) handle(b blast) error {
 	if err != nil {
 		return err
 	}
-	bn := path.Base(fn)
-	log.Printf("wrote %s\n", bn)
 	return nil
 }
 
@@ -279,14 +276,12 @@ func main() {
 	}
 	wg.Wait()
 	// close all of the ZIP streams.  Any failure is fatal.
-	for y, w := range e.Zips {
-		err = w.Flush()
+	for k, v := range e.Zips {
+		err = v.Close()
 		if err != nil {
-			log.Printf("%v flushing %v archive\n", e, y)
-		}
-		err = w.Close()
-		if err != nil {
-			log.Printf("%v closing %v archive\n", e, y)
+			m := fmt.Sprintf("Error %v closing ZIP archive for %v\n", e, k)
+			err := errors.New(m)
+			panic(err)
 		}
 	}
 }
