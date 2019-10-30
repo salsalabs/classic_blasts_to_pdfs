@@ -174,7 +174,7 @@ func (e env) push(api *godig.API, in chan blast) error {
 	c := 500
 	for c >= 500 {
 		var a []blast
-		err := t.Many(offset, c, "Stage=Complete&condition=Date_Requested LIKE 2019%", &a)
+		err := t.Many(offset, c, "Stage=Complete", &a)
 		if err != nil {
 			return err
 		}
