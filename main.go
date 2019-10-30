@@ -30,6 +30,17 @@ type blast struct {
 	Text          string `json:"Text_Content"`
 }
 
+type guide struct {
+	Extension string
+	Directory string
+}
+
+type env struct {
+	Summary   bool
+	HTMLGuide guide
+	PDFGuide  guide
+}
+
 //exists returns true if the specified file exists.
 func exists(f string) bool {
 	_, err := os.Stat(f)
@@ -43,14 +54,14 @@ func exists(f string) bool {
 }
 
 //proc accepts blasts from the input queue and handles them.
-func proc(in chan blast) {
+func (e env) proc(in chan blast) {
 	for {
 		select {
 		case b, ok := <-in:
 			if !ok {
 				return
 			}
-			err := handle(b)
+			err := e.handle(b)
 			if err != nil {
 				log.Printf("proc: key %v, %v\n", b.Key, err)
 			}
@@ -58,9 +69,9 @@ func proc(in chan blast) {
 	}
 }
 
-//filename parses a blast and returns a filename with the specified
-//extension and the year the blast was processed.
-func filename(b blast, ext string) (string, string) {
+//filename parses a blast and creates directory and filenames.  The Directory
+//is assured to exist.  Returns the full filename to write.
+func (d *guide) filename(b blast) (fn string, err error) {
 	const form = "Mon Jan 02 2006 15:04:05 GMT-0700 (MST)"
 	x := b.Date
 	if len(x) == 0 {
@@ -70,7 +81,7 @@ func filename(b blast, ext string) (string, string) {
 		x = b.DateRequested
 	}
 	t, _ := time.Parse(form, x)
-	d := t.Format("2006-01-02")
+	when := t.Format("2006-01-02")
 	s := strings.Replace(b.Subject, "/", " ", -1)
 	if len(s) == 0 {
 		s = strings.Replace(b.ReferenceName, "/", " ", -1)
@@ -80,13 +91,22 @@ func filename(b blast, ext string) (string, string) {
 	}
 	s = strings.TrimSpace(s)
 	y := t.Format("2006")
-	return fmt.Sprintf("%v - %v - %v.%v", d, b.Key, s, ext), y
+	dir := path.Join(d.Directory, y)
+	fn = fmt.Sprintf("%v - %v - %v.%v", when, b.Key, s, d.Extension)
+	if !exists(dir) {
+		err = os.MkdirAll(dir, os.ModePerm)
+		if err != nil {
+			return fn, err
+		}
+	}
+	fn = path.Join(dir, fn)
+	return fn, nil
 }
 
 //handle accepts a blast and writes both HTML and PDF files.
 //Errors writing PDFs (e.g. an image was deleted long ago) are
 //noted but not fatal.
-func handle(b blast) error {
+func (e env) handle(b blast) error {
 	// Create new PDF generator
 	pdfg, err := wkhtmltopdf.NewPDFGenerator()
 	if err != nil {
@@ -99,15 +119,11 @@ func handle(b blast) error {
 	pdfg.Grayscale.Set(false)
 
 	s := scrub(b.HTML)
-	bn, year := filename(b, "html")
-	d := path.Join(html, year)
-	if !exists(d) {
-		err = os.MkdirAll(d, os.ModePerm)
-		if err != nil {
-			return err
-		}
+	fn, err := e.HTMLGuide.filename(b)
+	if err != nil {
+		return err
 	}
-	fn := path.Join(html, year, bn)
+	bn := path.Base(fn)
 	if exists(fn) {
 		log.Printf("%s already exists\n", bn)
 		return nil
@@ -115,15 +131,11 @@ func handle(b blast) error {
 	buf := []byte(s)
 	ioutil.WriteFile(fn, buf, os.ModePerm)
 
-	bn, year = filename(b, "pdf")
-	d = path.Join(pdfs, year)
-	if !exists(d) {
-		err = os.MkdirAll(d, os.ModePerm)
-		if err != nil {
-			return err
-		}
+	fn, err = e.PDFGuide.filename(b)
+	if err != nil {
+		return err
 	}
-	fn = path.Join(pdfs, year, bn)
+	bn = path.Base(fn)
 	if exists(fn) {
 		log.Printf("%s already exists\n", fn)
 		return nil
@@ -149,7 +161,7 @@ func handle(b blast) error {
 }
 
 //push reads the email_blast table and pushes email blast onto a queue.
-func push(api *godig.API, summary bool, in chan blast) error {
+func (e env) push(api *godig.API, in chan blast) error {
 	t := api.EmailBlast()
 	offset := int32(0)
 	c := 500
@@ -163,8 +175,13 @@ func push(api *godig.API, summary bool, in chan blast) error {
 		c = len(a)
 		offset += int32(c)
 		for _, b := range a {
-			if summary {
-				fmt.Println(filename(b, "pdf"))
+			if e.Summary {
+				fn, err := e.PDFGuide.filename(b)
+				if err != nil {
+					panic(err)
+				}
+				bn := path.Base(fn)
+				fmt.Println(bn)
 			} else {
 				in <- b
 			}
@@ -192,7 +209,7 @@ func main() {
 		app        = kingpin.New("classic_blasts_to_pdfs", "A command-line app to read email blasts, correct DIA URLs and write PDFs.")
 		login      = app.Flag("login", "YAML file with login credentials").Required().String()
 		count      = app.Flag("count", "Start this number of processors.").Default("10").Int()
-		summary    = app.Flag("summary", "Show blast dates, keys and subjects.  Does not write PDFs").Default("false").Bool()
+		summary    = app.Flag("summary", "Show blast dates, keys and subjects. Does not write PDFs.").Default("false").Bool()
 		apiVerbose = app.Flag("apiVerbose", "each api call and response is displayed if true").Default("false").Bool()
 	)
 	app.Parse(os.Args[1:])
@@ -202,17 +219,19 @@ func main() {
 	}
 	api.Verbose = *apiVerbose
 
-	if !exists(pdfs) {
-		err := os.Mkdir(pdfs, os.ModePerm)
-		if err != nil && !os.IsExist(err) {
-			log.Fatalf("%v, %v\n", err, pdfs)
-		}
+	htmlGuide := guide{
+		Directory: "html",
+		Extension: "html",
 	}
-	if !exists(html) {
-		err := os.Mkdir(html, os.ModePerm)
-		if err != nil && !os.IsExist(err) {
-			log.Fatalf("%v, %v\n", err, html)
-		}
+	pdfGuide := guide{
+		Directory: "blast_pdfs",
+		Extension: "pdf",
+	}
+
+	e := env{
+		Summary:   *summary,
+		HTMLGuide: htmlGuide,
+		PDFGuide:  pdfGuide,
 	}
 
 	var wg sync.WaitGroup
@@ -221,10 +240,10 @@ func main() {
 		go func(in chan blast, wg *sync.WaitGroup) {
 			wg.Add(1)
 			defer wg.Done()
-			proc(in)
+			e.proc(in)
 		}(in, &wg)
 	}
-	err = push(api, *summary, in)
+	err = e.push(api, in)
 	if err != nil {
 		log.Fatalf("%v\n", err)
 	}
