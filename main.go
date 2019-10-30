@@ -59,8 +59,8 @@ func proc(in chan blast) {
 }
 
 //filename parses a blast and returns a filename with the specified
-//extension.
-func filename(b blast, ext string) string {
+//extension and the year the blast was processed.
+func filename(b blast, ext string) (string, string) {
 	const form = "Mon Jan 02 2006 15:04:05 GMT-0700 (MST)"
 	x := b.Date
 	if len(x) == 0 {
@@ -79,7 +79,8 @@ func filename(b blast, ext string) string {
 		s = "Unknown"
 	}
 	s = strings.TrimSpace(s)
-	return fmt.Sprintf("%v - %v - %v.%v", d, b.Key, s, ext)
+	y := t.Format("2006")
+	return fmt.Sprintf("%v - %v - %v.%v", d, b.Key, s, ext), y
 }
 
 //handle accepts a blast and writes both HTML and PDF files.
@@ -98,16 +99,31 @@ func handle(b blast) error {
 	pdfg.Grayscale.Set(false)
 
 	s := scrub(b.HTML)
-	fn := filename(b, "html")
-	fn = path.Join(html, fn)
+	bn, year := filename(b, "html")
+	d := path.Join(html, year)
+	if !exists(d) {
+		err = os.MkdirAll(d, os.ModePerm)
+		if err != nil {
+			return err
+		}
+	}
+	fn := path.Join(html, year, bn)
 	if exists(fn) {
-		log.Printf("%s: HTML already exists\n", b.Key)
+		log.Printf("%s already exists\n", bn)
 		return nil
 	}
 	buf := []byte(s)
 	ioutil.WriteFile(fn, buf, os.ModePerm)
-	fn = filename(b, "pdf")
-	fn = path.Join(pdfs, fn)
+
+	bn, year = filename(b, "pdf")
+	d = path.Join(pdfs, year)
+	if !exists(d) {
+		err = os.MkdirAll(d, os.ModePerm)
+		if err != nil {
+			return err
+		}
+	}
+	fn = path.Join(pdfs, year, bn)
 	if exists(fn) {
 		log.Printf("%s already exists\n", fn)
 		return nil
@@ -121,14 +137,14 @@ func handle(b blast) error {
 	pdfg.AddPage(page)
 	err = pdfg.Create()
 	if err != nil {
-		return fmt.Errorf("create error on %v: %s", b.Key, err)
+		return fmt.Errorf("%s on %v", err, fn)
 	}
 
 	err = pdfg.WriteFile(fn)
 	if err != nil {
 		return err
 	}
-	log.Printf("wrote %s\n", fn)
+	log.Printf("%s\n", bn)
 	return nil
 }
 
