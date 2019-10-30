@@ -100,7 +100,7 @@ The application creates two directories.
 
 -   `html`: the modified HTML for each of the blasts.
 -   `blast_pdfs`: the PDFs for each of the blasts.
--   `blast_pdfs/[[year]].zip` PDFs for a particular year.  We generally export these
+-   `blast_pdfs/[[year]]` PDFs for a particular year.  We generally export these as zip archives.
 
 # Questions?  Comments?
 
