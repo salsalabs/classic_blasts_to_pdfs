@@ -73,12 +73,12 @@ The `classic_blasts_to_pdf` app invokes `wkhtmltopdf` with these settings.
 -   `--disable-smart-shrinking` seems to help. Taking it away results in squashed content. Let me know if you find something that works better.
 
 ## Installing `classic_blasts_to_pdfs`.
+These steps will install `classic_blasts_to_pdfs` as an executable in `~/go/bin`.
 
 ```bash
 go get "github.com/salsalabs/classic_blasts_to_pdfs"
 go install
 ```
-
 # Usage
 
     usage: classic_blasts_to_pdfs --login=LOGIN [<flags>]
