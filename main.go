@@ -36,9 +36,9 @@ type guide struct {
 }
 
 type env struct {
-	Summary   bool
-	HTMLGuide guide
-	PDFGuide  guide
+	Summary  bool
+	HTMLOnly bool
+	Guide    guide
 }
 
 //exists returns true if the specified file exists.
@@ -71,7 +71,7 @@ func (e env) proc(in chan blast) {
 
 //filename parses a blast and creates directory and filenames.  The Directory
 //is assured to exist.  Returns the full filename to write.
-func (d *guide) filename(b blast) (fn string, err error) {
+func (e env) filename(b blast) (fn string, err error) {
 	const form = "Mon Jan 02 2006 15:04:05 GMT-0700 (MST)"
 	x := b.Date
 	if len(x) == 0 {
@@ -91,9 +91,9 @@ func (d *guide) filename(b blast) (fn string, err error) {
 	}
 	s = strings.TrimSpace(s)
 	y := t.Format("2006")
-	dir := path.Join(d.Directory, y)
-	fn = fmt.Sprintf("%v - %v - %v.%v", when, b.Key, s, d.Extension)
-	if !exists(dir) {
+	dir := path.Join(e.Guide.Directory, y)
+	fn = fmt.Sprintf("%v - %v - %v.%v", when, b.Key, s, e.Guide.Extension)
+	if !e.Summary && !exists(dir) {
 		err = os.MkdirAll(dir, os.ModePerm)
 		if err != nil {
 			return fn, err
@@ -107,7 +107,34 @@ func (d *guide) filename(b blast) (fn string, err error) {
 //Errors writing PDFs (e.g. an image was deleted long ago) are
 //noted but not fatal.
 func (e env) handle(b blast) error {
-	// Create new PDF generator
+	fn, err := e.filename(b)
+	if err != nil {
+		return err
+	}
+	bn := path.Base(fn)
+	if exists(fn) {
+		log.Printf("%s already exists\n", bn)
+		return nil
+	}
+	if e.Summary {
+		fmt.Printf("%s\n", bn)
+		return nil
+	}
+
+	s := scrub(b.HTML)
+	buf := []byte(s)
+
+	// Write HTML.
+	if e.HTMLOnly {
+		err = ioutil.WriteFile(fn, buf, os.ModePerm)
+		if err != nil {
+			return err
+		}
+		log.Printf("%s\n", bn)
+		return nil
+	}
+
+	// Write PDF.
 	pdfg, err := wkhtmltopdf.NewPDFGenerator()
 	if err != nil {
 		return err
@@ -118,34 +145,14 @@ func (e env) handle(b blast) error {
 	pdfg.PageSize.Set(wkhtmltopdf.PageSizeLetter)
 	pdfg.Grayscale.Set(false)
 
-	s := scrub(b.HTML)
-	fn, err := e.HTMLGuide.filename(b)
-	if err != nil {
-		return err
-	}
-	bn := path.Base(fn)
-	if exists(fn) {
-		log.Printf("%s already exists\n", bn)
-		return nil
-	}
-	buf := []byte(s)
-	ioutil.WriteFile(fn, buf, os.ModePerm)
-
-	fn, err = e.PDFGuide.filename(b)
-	if err != nil {
-		return err
-	}
-	bn = path.Base(fn)
-	if exists(fn) {
-		log.Printf("%s already exists\n", fn)
-		return nil
-	}
-
+	// Blast goes into a PDF page.
 	page := wkhtmltopdf.NewPageReader(bytes.NewReader(buf))
+
+	//Set page options.
 	page.DisableSmartShrinking.Set(true)
 	page.LoadErrorHandling.Set("ignore")
 	page.LoadMediaErrorHandling.Set("ignore")
-	page.Zoom.Set(1.0)
+	page.Zoom.Set(0.9)
 	pdfg.AddPage(page)
 	err = pdfg.Create()
 	if err != nil {
@@ -175,16 +182,7 @@ func (e env) push(api *godig.API, in chan blast) error {
 		c = len(a)
 		offset += int32(c)
 		for _, b := range a {
-			if e.Summary {
-				fn, err := e.PDFGuide.filename(b)
-				if err != nil {
-					panic(err)
-				}
-				bn := path.Base(fn)
-				fmt.Println(bn)
-			} else {
-				in <- b
-			}
+			in <- b
 		}
 	}
 	close(in)
@@ -209,8 +207,9 @@ func main() {
 		app        = kingpin.New("classic_blasts_to_pdfs", "A command-line app to read email blasts, correct DIA URLs and write PDFs.")
 		login      = app.Flag("login", "YAML file with login credentials").Required().String()
 		count      = app.Flag("count", "Start this number of processors.").Default("10").Int()
-		summary    = app.Flag("summary", "Show blast dates, keys and subjects. Does not write PDFs.").Default("false").Bool()
-		apiVerbose = app.Flag("apiVerbose", "each api call and response is displayed if true").Default("false").Bool()
+		summary    = app.Flag("summary", "Show blast dates, keys and subjects. Do not write PDFs.").Default("false").Bool()
+		htmlOnly   = app.Flag("htmlOnly", "Write HTML. Do not write PDFs.").Default("false").Bool()
+		apiVerbose = app.Flag("apiVerbose", "Display API calls and responses. Very noisy...").Default("false").Bool()
 	)
 	app.Parse(os.Args[1:])
 	api, err := (godig.YAMLAuth(*login))
@@ -219,19 +218,20 @@ func main() {
 	}
 	api.Verbose = *apiVerbose
 
-	htmlGuide := guide{
-		Directory: "html",
-		Extension: "html",
-	}
-	pdfGuide := guide{
+	g := guide{
 		Directory: "blast_pdfs",
 		Extension: "pdf",
 	}
-
+	if *htmlOnly {
+		g = guide{
+			Directory: "html",
+			Extension: "html",
+		}
+	}
 	e := env{
-		Summary:   *summary,
-		HTMLGuide: htmlGuide,
-		PDFGuide:  pdfGuide,
+		Summary:  *summary,
+		HTMLOnly: *htmlOnly,
+		Guide:    g,
 	}
 
 	var wg sync.WaitGroup
