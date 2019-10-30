@@ -1,8 +1,10 @@
 # Login credentials
 logins
+*.yaml
 
 # Outputs
 pdfs
+blast_pdfs
 html
 
 # Mac files
