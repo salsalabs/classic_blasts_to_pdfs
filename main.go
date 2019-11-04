@@ -69,8 +69,10 @@ func (e env) proc(in chan blast) {
 	}
 }
 
-//filename parses a blast and creates directory and filenames.  The Directory
-//is assured to exist.  Returns the full filename to write.
+//filename parses a blast and creates filenames.  Filenames are composed of
+//a directory nbamed for the year the balst was sent and a filename containing
+//the creation date, email_blast_KEY and a scrubbed subject.  The directory
+//is created as needed.  Returns the full filename to write.
 func (e env) filename(b blast) (fn string, err error) {
 	const form = "Mon Jan 02 2006 15:04:05 GMT-0700 (MST)"
 	x := b.Date
@@ -197,6 +199,7 @@ func scrub(x string) string {
 	s = strings.Replace(s, "hq.demaction.org", "org.salsalabs.com", -1)
 	s = strings.Replace(s, "cid:", "https:", -1)
 	s = strings.Replace(s, `"/salsa/`, `"https://salsalabs.com/salsa/`, -1)
+	s = strings.Replace(s, "%20", " ", -1)
 	return s
 }
 
