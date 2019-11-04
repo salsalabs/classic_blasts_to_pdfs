@@ -47,7 +47,7 @@ See the section named "How to open an app from a unidentified developer and exem
 
 ## Settings for wkhtmltopdf
 
-The `classic_blasts_to_pdf` app invokes `wkhtmltopdf` with these settings.
+The `classic_blasts_to_pdf` app configures `wkhtmltopdf` with these settings.
 
 ### PDF settings
 
@@ -66,41 +66,87 @@ The `classic_blasts_to_pdf` app invokes `wkhtmltopdf` with these settings.
 | Load Media Error Handling | ignore |
 | Zoom                      | 0.9    |
 
-    wkhtmltopdf --zoom 3 --page-size Letter --disable-smart-shrinking
-
--   `--zoom 3` shows of email blasts nicely
--   `--page-size letter` sets the page size to U.S. Letter format.  The default is A4.
--   `--disable-smart-shrinking` seems to help. Taking it away results in squashed content. Let me know if you find something that works better.
-
 ## Installing `classic_blasts_to_pdfs`.
-These steps will install `classic_blasts_to_pdfs` as an executable in `~/go/bin`.
+
+use these steps to install `classic_blasts_to_pdfs` as an executable in `~/go/bin`.
 
 ```bash
 go get "github.com/salsalabs/classic_blasts_to_pdfs"
 go install
 ```
+
+
 # Usage
 
-    usage: classic_blasts_to_pdfs --login=LOGIN [<flags>]
+```
+usage: classic_blasts_to_pdfs --login=LOGIN [<flags>]
 
-    A command-line app to read email blasts, correct DIA URLs and write PDFs.
+A command-line app to read email blasts, correct DIA URLs and write PDFs.
 
-    Flags:
-      --help         Show context-sensitive help (also try --help-long and --help-man).
-      --login=LOGIN  YAML file with login credentials
-      --count=10     Start this number of processors.
-      --summary      Show blast dates, keys and subjects. Does not write PDFs.
-      --htmlOnly     Write HTML. Does not write PDFs.```
-
-    Use --help to get a list of options.
+Flags:
+  --help         Show context-sensitive help (also try --help-long and --help-man).
+  --login=LOGIN  YAML file with login credentials
+  --count=10     Start this number of processors.
+  --summary      Show blast dates, keys and subjects. Do not write PDFs.
+  --htmlOnly     Write HTML. Do not write PDFs.
+  --apiVerbose   Display API calls and responses. Very noisy...
+```
 
 # Output
 
-The application creates two directories.
+The application can create these outputs based on the options provided in the command line arguments.
 
--   `html`: the modified HTML for each of the blasts.
--   `blast_pdfs`: the PDFs for each of the blasts.
--   `blast_pdfs/[[year]]` PDFs for a particular year.  We generally export these as zip archives.
+-   `html/[[year]]`: (`--htmlOnly`) HTML for each of the blasts sent during "year".  No PDFs are created.
+-   `blast_pdfs/[[year]]` (default) PDFs for each of the blast sent during "year" to HTML is generated.
+
+Choosing `--summary` reads email blasts and writes their filenames to the console.
+
+```
+2019/11/04 12:51:47 Read 500 records from offset 0
+2014-01-28 - 1278888 - FW: This is outrageous:.pdf
+2014-01-28 - 1248540 - Sen. Johnson's vote cost HOW much?.pdf
+2014-01-28 - 1256661 - URGENT: Need your name before tomorrow.pdf
+2014-01-28 - 1247732 - Sen. Johnson's vote cost HOW much?.pdf
+2014-01-28 - 1256243 - Sen. Petrowski needs to hear from you, [[First_Name]].pdf
+2014-01-28 - 1267003 - Today, don't let them forget.pdf
+2014-01-28 - 1174855 - Five times more likely to be murdered.pdf
+2014-01-28 - 1253417 - They need to know:.pdf
+2014-01-28 - 1266975 - Remember: Monday.pdf
+```
+
+# Delivery
+
+We generally deliver blast PDFs to clients in ZIP archives, where each archive
+contains the blast PDFs for a particular year. Here's a shell script that you
+can use to create the zip files.
+
+```bash
+cd blast_pdfs
+for i in *; do zip -r $i{.zip} $i; rm -rf $i; done
+```
+When the script is done, you should be able to list the directory contents
+
+```bash
+ls -al
+```
+
+and see a directory somewhat like this.
+
+```
+drwxr-xr-x  13 someuser  staff       416 Nov  4 12:39 .
+drwxr-xr-x   5 someuser  staff       160 Nov  4 12:26 ..
+-rw-r--r--   1 someuser  staff   3332693 Nov  4 12:39 2009.zip
+-rw-r--r--   1 someuser  staff   3179658 Nov  4 12:39 2010.zip
+-rw-r--r--   1 someuser  staff    343584 Nov  4 12:39 2011.zip
+-rw-r--r--   1 someuser  staff   2127746 Nov  4 12:39 2012.zip
+-rw-r--r--   1 someuser  staff    636265 Nov  4 12:39 2013.zip
+-rw-r--r--   1 someuser  staff  37528142 Nov  4 12:39 2014.zip
+-rw-r--r--   1 someuser  staff   9631910 Nov  4 12:39 2015.zip
+-rw-r--r--   1 someuser  staff  16619817 Nov  4 12:39 2016.zip
+-rw-r--r--   1 someuser  staff  12956176 Nov  4 12:39 2017.zip
+-rw-r--r--   1 someuser  staff  17752595 Nov  4 12:39 2018.zip
+-rw-r--r--   1 someuser  staff    245461 Nov  4 12:39 2019.zip
+```
 
 # Questions?  Comments?
 
