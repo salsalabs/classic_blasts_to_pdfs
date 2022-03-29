@@ -77,10 +77,10 @@ func (e env) filename(b blast) (fn string, err error) {
 	const form = "Mon Jan 02 2006 15:04:05 GMT-0700 (MST)"
 	x := b.Date
 	if len(x) == 0 {
-		x = b.LastModified
+		x = b.DateRequested
 	}
 	if len(x) == 0 {
-		x = b.DateRequested
+		x = b.LastModified
 	}
 	t, _ := time.Parse(form, x)
 	when := t.Format("2006-01-02")
