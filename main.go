@@ -20,7 +20,7 @@ const html = "html"
 const pdfs = "pdfs"
 
 type blast struct {
-	Date          string `json:"Scheduled_Time"`
+	Date          string `json:"Date_Created"`
 	LastModified  string `json:"Last_Modified"`
 	DateRequested string `json:"Date_Requested"`
 	Key           string `json:"email_blast_KEY"`
