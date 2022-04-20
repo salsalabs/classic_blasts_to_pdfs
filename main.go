@@ -199,7 +199,7 @@ func scrub(x string) string {
 	s = strings.Replace(s, "hq.demaction.org", "org.salsalabs.com", -1)
 	s = strings.Replace(s, "cid:", "https:", -1)
 	s = strings.Replace(s, `"/salsa/`, `"https://salsalabs.com/salsa/`, -1)
-	s = strings.Replace(s, " ", "%20", -1)
+	//s = strings.Replace(s, " ", "%20", -1)
 	return s
 }
 
